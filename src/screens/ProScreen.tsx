@@ -1,3 +1,19 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// screens/ProScreen.tsx  —  Pro plan upgrade page.
+//
+// This screen presents the Pro feature list and a subscribe CTA. In production
+// the subscribe flow would go through RevenueCat (iOS) or Google Play Billing
+// (Android). For now, "Simulate Pro" sets `isPro: true` in the Zustand store
+// so we can test all Pro-gated features without a real payment setup.
+//
+// NAVIGATION
+// Reached from:
+//   HomeScreen → free-plan "new checklist" limit alert
+//   NewChecklistScreen → multi-stop or geofence Pro prompt
+//   SettingsScreen → Pro upgrade banner
+//   Various Alert dialogs throughout the app ("Upgrade" button)
+// ─────────────────────────────────────────────────────────────────────────────
+
 import React from 'react';
 import {
   View,
@@ -13,6 +29,9 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAppStore } from '../store/useAppStore';
 import { theme } from '../theme';
 
+// Feature list rendered in the "What's included" card.
+// TypeScript infers the type from the literal — no explicit annotation needed
+// as long as every object has the same shape.
 const FEATURES = [
   {
     title: 'Unlimited checklists',
@@ -38,9 +57,11 @@ const FEATURES = [
 
 export function ProScreen() {
   const navigation = useNavigation();
+  // We only need `updateSettings` here — no need to read the full store.
   const { updateSettings } = useAppStore();
 
   function handleSubscribe() {
+    // In production: call RevenueCat / Google Play Billing here.
     Alert.alert(
       'Subscribe to Pro',
       'In production this opens the App Store / Google Play in-app purchase flow via RevenueCat or similar.',
@@ -49,6 +70,7 @@ export function ProScreen() {
         {
           text: 'Simulate Pro',
           onPress: () => {
+            // Flip the isPro flag so gated features unlock immediately.
             updateSettings({ isPro: true });
             Alert.alert('Welcome to Pro!', 'Pro features are now unlocked.', [
               { text: 'OK', onPress: () => navigation.goBack() },
@@ -62,7 +84,8 @@ export function ProScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
-        {/* Topbar */}
+
+        {/* ── Topbar ─────────────────────────────────────────────────────── */}
         <View style={s.topbar}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
             <Ionicons name="arrow-back" size={22} color={theme.colors.textSecondary} />
@@ -70,14 +93,19 @@ export function ProScreen() {
           <Text style={s.title}>CheckDrive Pro</Text>
         </View>
 
-        {/* Hero */}
+        {/* ── Hero card ────────────────────────────────────────────────────── */}
+        {/* Two StyleSheet rules merged with array syntax: card + hero.
+            `card` provides shared surface styling; `hero` adds centred layout
+            and extra vertical padding specific to this block. */}
         <View style={[s.card, s.hero]}>
           <MaterialCommunityIcons name="crown" size={42} color={theme.colors.purple} />
           <Text style={s.heroTitle}>Go Pro</Text>
           <Text style={s.heroSub}>Everything you need, nothing you don't</Text>
         </View>
 
-        {/* Feature list */}
+        {/* ── Feature list ─────────────────────────────────────────────────── */}
+        {/* `f.title` used as the React list key because it's guaranteed unique
+            in this static array. */}
         <View style={s.card}>
           {FEATURES.map((f, idx) => (
             <View
@@ -93,7 +121,7 @@ export function ProScreen() {
           ))}
         </View>
 
-        {/* Subscribe */}
+        {/* ── Primary CTA ──────────────────────────────────────────────────── */}
         <TouchableOpacity style={s.subscribeBtn} onPress={handleSubscribe}>
           <MaterialCommunityIcons name="crown" size={16} color="#fff" />
           <Text style={s.subscribeBtnText}> Start for $2.99/month</Text>
@@ -102,6 +130,7 @@ export function ProScreen() {
         <Text style={s.annualNote}>
           Also available: $24.99/year (save 30%) · Cancel anytime
         </Text>
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -122,6 +151,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
+  // Additional styles for the hero block; merged with `card` at the render site.
   hero: {
     alignItems: 'center',
     paddingVertical: 24,

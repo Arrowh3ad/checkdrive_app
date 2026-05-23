@@ -1,3 +1,29 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// screens/HomeScreen.tsx  —  Main screen of the app.
+//
+// LAYOUT (top to bottom):
+//   • Topbar — app name + settings button
+//   • Vehicle Detection Banner — shows CarPlay connection status; tapping it
+//     opens the default/autoDetect checklist. Also contains the "Simulate"
+//     button for testing.
+//   • Ad banner — shown to free users only (placeholder for a real ad SDK)
+//   • Checklists section — list of all user checklists with a ⋮ menu per row
+//   • "New checklist" button — gated to 3 on the free plan
+//   • Recent trips — last 3 trip logs
+//   • Stats grid — trips this week + completion rate
+//
+// ⋮ MENU
+// Each checklist row has an ellipsis button that opens an Alert with three
+// options: Set/remove default (Pro-gated), Edit, Delete. The ⋮ button is
+// rendered outside the main TouchableOpacity so the two touch targets don't
+// interfere with each other.
+//
+// CONNECTIONS TO THE REST OF THE APP
+//   useAppStore()       → reads checklists, logs, settings; writes defaultChecklistId
+//   useCarDetection()   → mounts the deep-link listener; exposes simulate helpers
+//   navigation.navigate → ChecklistRun / MultiStop / NewChecklist / Settings
+// ─────────────────────────────────────────────────────────────────────────────
+
 import React from 'react';
 import {
   View,
@@ -5,6 +31,8 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -13,33 +41,136 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAppStore } from '../store/useAppStore';
 import { useCarDetection } from '../hooks/useCarDetection';
 import { theme } from '../theme';
-import { RootStackParamList } from '../types';
+import { Checklist, RootStackParamList } from '../types';
 import { formatTimeAgo } from '../utils/time';
 
+// Narrowing the navigation type to the 'Home' screen makes `navigation.navigate`
+// type-safe: TypeScript knows which screens are reachable from here.
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
 export function HomeScreen() {
   const navigation = useNavigation<Nav>();
-  const { checklists, tripLogs, settings, connectedToVehicle } = useAppStore();
+  const {
+    checklists,
+    tripLogs,
+    settings,
+    connectedToVehicle,
+    deleteChecklist,
+    setDefaultChecklist,
+  } = useAppStore();
+
+  // Mounting useCarDetection here registers the deep-link listener for the
+  // entire app session. The hook also exposes simulate helpers for the banner.
   const { simulateConnect, simulateDisconnect } = useCarDetection();
 
+  // Derived stats — computed inline to avoid stale closure issues with useState.
   const recentLogs = tripLogs.slice(0, 3);
-  const tripsThisWeek = tripLogs.filter((l) => {
-    return Date.now() - new Date(l.timestamp).getTime() < 7 * 86400000;
-  }).length;
+  const tripsThisWeek = tripLogs.filter(
+    (l) => Date.now() - new Date(l.timestamp).getTime() < 7 * 86400000
+  ).length;
+  // Guard against dividing by zero when there are no logs yet.
   const completionRate =
     tripLogs.length > 0
       ? Math.round((tripLogs.filter((l) => l.isComplete).length / tripLogs.length) * 100)
       : 0;
 
+  // Navigates to the correct run screen based on whether the checklist is
+  // multi-stop (MultiStopScreen) or regular (ChecklistRunScreen).
+  // Multi-stop is Pro-only: free users who have a multi-stop checklist (created
+  // while Pro, kept after downgrade) see an upsell alert instead.
   function onChecklistPress(id: string, isMultiStop: boolean) {
+    if (isMultiStop && !settings.isPro) {
+      Alert.alert(
+        'Pro feature',
+        'Multi-stop trips require Pro. Upgrade to run this checklist, or delete it from the ⋮ menu.',
+        [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Upgrade', onPress: () => navigation.navigate('Pro') },
+        ]
+      );
+      return;
+    }
     navigation.navigate(isMultiStop ? 'MultiStop' : 'ChecklistRun', { checklistId: id });
+  }
+
+  // Enforces the free-plan 3-checklist limit before navigating to NewChecklist.
+  function onNewChecklist() {
+    if (!settings.isPro && checklists.length >= 3) {
+      Alert.alert(
+        'Checklist limit reached',
+        'Free plan allows up to 3 checklists. Upgrade to Pro for unlimited.',
+        [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Upgrade to Pro', onPress: () => navigation.navigate('Pro') },
+        ]
+      );
+      return;
+    }
+    navigation.navigate('NewChecklist');
+  }
+
+  // Shows an action sheet for a given checklist row. The sheet has three
+  // options: default toggle (Pro-gated), edit, and delete.
+  function onChecklistMenu(cl: Checklist) {
+    const isDefault = settings.defaultChecklistId === cl.id;
+
+    Alert.alert(cl.name, undefined, [
+      {
+        // Label changes depending on current default state and Pro status.
+        text: isDefault
+          ? 'Remove as default'
+          : settings.isPro
+          ? 'Set as default'
+          : 'Set as default (Pro)',
+        onPress: () => {
+          // Removing the default is always allowed (even on free plan after a downgrade).
+          // Only gate the *setting* action behind Pro.
+          if (!settings.isPro && !isDefault) {
+            Alert.alert(
+              'Pro feature',
+              'Set a default checklist so the CarPlay notification opens it directly.',
+              [
+                { text: 'Not now', style: 'cancel' },
+                { text: 'Upgrade', onPress: () => navigation.navigate('Pro') },
+              ]
+            );
+            return;
+          }
+          // Toggle: if this checklist is already the default, clear it; otherwise set it.
+          setDefaultChecklist(isDefault ? null : cl.id);
+        },
+      },
+      {
+        text: 'Edit',
+        // Pass checklistId as a param — NewChecklistScreen uses it to enter edit mode.
+        onPress: () => navigation.navigate('NewChecklist', { checklistId: cl.id }),
+      },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () =>
+          Alert.alert(
+            'Delete checklist',
+            `Delete "${cl.name}"? This cannot be undone.`,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: () => deleteChecklist(cl.id),
+              },
+            ]
+          ),
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   }
 
   return (
     <SafeAreaView style={s.safe}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
-        {/* Topbar */}
+
+        {/* ── Topbar ─────────────────────────────────────────────────────── */}
         <View style={s.topbar}>
           <MaterialCommunityIcons name="steering" size={22} color={theme.colors.primary} />
           <Text style={s.title}>CheckDrive</Text>
@@ -48,18 +179,24 @@ export function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Vehicle Detection Banner */}
+        {/* ── Vehicle Detection Banner ────────────────────────────────────── */}
+        {/* The banner's tap-to-run area is separate from the Simulate button so
+            both touch targets function independently.                         */}
         <TouchableOpacity
           activeOpacity={0.8}
           style={[s.detectBanner, !connectedToVehicle && s.detectBannerOff]}
           onPress={() => {
             if (!connectedToVehicle) return;
-            const cl = checklists.find((c) => c.autoDetect);
+            // Open the default checklist if one is set, otherwise the first
+            // checklist that has autoDetect enabled.
+            const cl =
+              checklists.find((c) => c.id === settings.defaultChecklistId) ??
+              checklists.find((c) => c.autoDetect);
             if (cl) onChecklistPress(cl.id, cl.isMultiStop);
           }}
         >
           <Ionicons
-            name={connectedToVehicle ? 'wifi' : 'wifi-off'}
+            name={connectedToVehicle ? 'wifi' : 'wifi-outline'}
             size={28}
             color={connectedToVehicle ? theme.colors.primaryDark : theme.colors.textTertiary}
           />
@@ -69,10 +206,13 @@ export function HomeScreen() {
             </Text>
             <Text style={[s.detectSub, !connectedToVehicle && s.detectSubOff]}>
               {connectedToVehicle
-                ? 'Tap to run your checklist'
+                ? settings.defaultChecklistId
+                  ? `Opening: ${checklists.find(c => c.id === settings.defaultChecklistId)?.name ?? 'default'}`
+                  : 'Tap to run your checklist'
                 : 'Connect CarPlay or Android Auto'}
             </Text>
           </View>
+          {/* Simulate button — toggles connectedToVehicle for testing */}
           <TouchableOpacity
             style={s.simBtn}
             onPress={connectedToVehicle ? simulateDisconnect : simulateConnect}
@@ -81,56 +221,93 @@ export function HomeScreen() {
           </TouchableOpacity>
         </TouchableOpacity>
 
-        {/* Setup link */}
+        {/* Link to the setup guide for users who haven't configured Shortcuts yet */}
         <TouchableOpacity onPress={() => navigation.navigate('CarDetectionSetup')}>
           <Text style={s.setupLink}>
             <Ionicons name="information-circle-outline" size={13} /> Set up auto-detection →
           </Text>
         </TouchableOpacity>
 
-        {/* Ad banner */}
+        {/* Ad placeholder — only shown to free users */}
         {!settings.isPro && (
           <View style={s.adBanner}>
             <Text style={s.adText}>Advertisement — upgrade to Pro to remove</Text>
           </View>
         )}
 
-        {/* My checklists */}
+        {/* ── My checklists ───────────────────────────────────────────────── */}
         <Text style={s.sectionLabel}>My checklists</Text>
+        {/* Slot counter — Pro users see unlimited, free users see X/3 */}
+        {!settings.isPro && (
+          <Text style={s.slotHint}>{checklists.length}/3 used on free plan</Text>
+        )}
+
         <View style={s.card}>
           {checklists.map((cl, idx) => (
-            <TouchableOpacity
+            <View
               key={cl.id}
               style={[s.clRow, idx < checklists.length - 1 && s.clRowBorder]}
-              onPress={() => onChecklistPress(cl.id, cl.isMultiStop)}
             >
-              <View style={[s.clIcon, { backgroundColor: cl.iconBg }]}>
-                <Ionicons name={cl.iconName as any} size={18} color={cl.iconColor} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.clName}>{cl.name}</Text>
-                <Text style={s.clMeta}>
-                  {cl.isMultiStop
-                    ? `${cl.stops.length} stops · ${cl.stops.reduce(
-                        (a, st) => a + st.items.length,
-                        0
-                      )} items · Multi-stop mode`
-                    : `${cl.startItems.length} items · ${
-                        cl.endOfTripEnabled ? 'Start + end' : 'Start only'
-                      } · Auto-trigger ${cl.autoDetect ? 'on' : 'off'}`}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={theme.colors.textTertiary} />
-            </TouchableOpacity>
+              {/* Left tappable area: icon + name + meta — navigates to the run screen */}
+              <TouchableOpacity
+                style={s.clMain}
+                onPress={() => onChecklistPress(cl.id, cl.isMultiStop)}
+                activeOpacity={0.7}
+              >
+                {/* Icon: either a custom photo (iconUri) or a preset Ionicons icon */}
+                <View style={[s.clIcon, { backgroundColor: cl.iconUri ? '#fff' : cl.iconBg }]}>
+                  {cl.iconUri ? (
+                    <Image
+                      source={{ uri: cl.iconUri }}
+                      style={s.clIconImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Ionicons name={cl.iconName as any} size={18} color={cl.iconColor} />
+                  )}
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  {/* Name row with optional default-star badge (Pro feature) */}
+                  <View style={s.clNameRow}>
+                    <Text style={s.clName} numberOfLines={1}>{cl.name}</Text>
+                    {settings.defaultChecklistId === cl.id && (
+                      <Ionicons name="star" size={12} color={theme.colors.primary} />
+                    )}
+                  </View>
+                  {/* Meta line differs for multi-stop vs regular checklists */}
+                  <Text style={s.clMeta}>
+                    {cl.isMultiStop
+                      ? `${cl.stops.length} stops · ${cl.stops.reduce(
+                          (a, st) => a + st.items.length,
+                          0
+                        )} items · Multi-stop`
+                      : `${cl.startItems.length} start · ${cl.endItems.length} end · Auto ${
+                          cl.autoDetect ? 'on' : 'off'
+                        }`}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* ⋮ button — deliberately outside the main TouchableOpacity so
+                  it has its own independent touch target */}
+              <TouchableOpacity
+                style={s.menuBtn}
+                onPress={() => onChecklistMenu(cl)}
+                hitSlop={8}
+              >
+                <Ionicons name="ellipsis-vertical" size={17} color={theme.colors.textTertiary} />
+              </TouchableOpacity>
+            </View>
           ))}
         </View>
 
-        <TouchableOpacity style={s.btn} onPress={() => navigation.navigate('NewChecklist')}>
+        <TouchableOpacity style={s.btn} onPress={onNewChecklist}>
           <Ionicons name="add" size={16} color={theme.colors.textPrimary} />
           <Text style={s.btnText}> New checklist</Text>
         </TouchableOpacity>
 
-        {/* Recent trips */}
+        {/* ── Recent trips ────────────────────────────────────────────────── */}
         <Text style={s.sectionLabel}>Recent trips</Text>
         <View style={s.card}>
           {recentLogs.length === 0 ? (
@@ -143,6 +320,7 @@ export function HomeScreen() {
                 key={log.id}
                 style={[s.logRow, idx < recentLogs.length - 1 && s.logRowBorder]}
               >
+                {/* Green dot = complete, red dot = incomplete */}
                 <View
                   style={[
                     s.logDot,
@@ -158,7 +336,7 @@ export function HomeScreen() {
           )}
         </View>
 
-        {/* Stats */}
+        {/* ── Stats grid ──────────────────────────────────────────────────── */}
         <View style={s.statGrid}>
           <View style={s.statCard}>
             <Text style={s.statVal}>{tripsThisWeek}</Text>
@@ -169,6 +347,7 @@ export function HomeScreen() {
             <Text style={s.statLabel}>Completion rate</Text>
           </View>
         </View>
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -177,12 +356,7 @@ export function HomeScreen() {
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: theme.colors.bgSecondary },
   scroll: { padding: 16, gap: 12 },
-  topbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingBottom: 4,
-  },
+  topbar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 4 },
   title: { flex: 1, fontSize: 18, fontWeight: '500', color: theme.colors.textPrimary },
   iconBtn: { padding: 6 },
 
@@ -211,12 +385,7 @@ const s = StyleSheet.create({
     paddingVertical: 6,
   },
   simBtnText: { color: '#fff', fontSize: 12, fontWeight: '500' },
-  setupLink: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
-    textAlign: 'right',
-    marginTop: -4,
-  },
+  setupLink: { fontSize: 12, color: theme.colors.textSecondary, textAlign: 'right', marginTop: -4 },
 
   adBanner: {
     backgroundColor: theme.colors.bgTertiary,
@@ -237,6 +406,8 @@ const s = StyleSheet.create({
     letterSpacing: 0.8,
     paddingHorizontal: 2,
   },
+  slotHint: { fontSize: 11, color: theme.colors.textTertiary, paddingHorizontal: 2, marginTop: -6 },
+
   card: {
     backgroundColor: theme.colors.bgPrimary,
     borderWidth: 0.5,
@@ -249,22 +420,25 @@ const s = StyleSheet.create({
   clRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingVertical: 12,
+    // Outer row provides the separator; inner clMain provides the real padding.
+    paddingVertical: 2,
   },
-  clRowBorder: {
-    borderBottomWidth: 0.5,
-    borderBottomColor: theme.colors.borderTertiary,
-  },
+  clRowBorder: { borderBottomWidth: 0.5, borderBottomColor: theme.colors.borderTertiary },
+  clMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
+
   clIcon: {
     width: 36,
     height: 36,
     borderRadius: theme.radius.md,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden', // clips the custom photo image to the rounded rect
   },
-  clName: { fontSize: 15, fontWeight: '500', color: theme.colors.textPrimary },
+  clIconImage: { width: 36, height: 36, borderRadius: theme.radius.md },
+  clNameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  clName: { fontSize: 15, fontWeight: '500', color: theme.colors.textPrimary, flexShrink: 1 },
   clMeta: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 2 },
+  menuBtn: { paddingHorizontal: 6, paddingVertical: 10, marginLeft: 2 },
 
   btn: {
     flexDirection: 'row',
@@ -278,16 +452,8 @@ const s = StyleSheet.create({
   },
   btnText: { fontSize: 14, fontWeight: '500', color: theme.colors.textPrimary },
 
-  logRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 10,
-  },
-  logRowBorder: {
-    borderBottomWidth: 0.5,
-    borderBottomColor: theme.colors.borderTertiary,
-  },
+  logRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
+  logRowBorder: { borderBottomWidth: 0.5, borderBottomColor: theme.colors.borderTertiary },
   logDot: { width: 8, height: 8, borderRadius: 4 },
   logName: { flex: 1, fontSize: 13, fontWeight: '500', color: theme.colors.textPrimary },
   logMeta: { fontSize: 12, color: theme.colors.textSecondary },

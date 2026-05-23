@@ -1,3 +1,20 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// screens/SettingsScreen.tsx  —  User preferences and account management.
+//
+// SECTIONS
+//   • Account card — avatar, name, plan badge
+//   • Pro upgrade banner (free users) OR manage-subscription row (Pro users)
+//   • Preferences — push notifications, BT auto-detect, trip streaks
+//   • Car detection setup — link to the Shortcuts setup guide
+//   • Stats grid — total trips + day streak
+//   • Version footer
+//
+// SIMULATE DOWNGRADE
+// The "Manage Subscription" dialog includes a "Simulate Downgrade" button that
+// calls `downgradeFromPro()`. This trims checklists to 3 and clears Pro-only
+// state so we can test the downgrade path without a real payment provider.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import React from 'react';
 import {
   View,
@@ -6,6 +23,7 @@ import {
   TouchableOpacity,
   Switch,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -15,14 +33,40 @@ import { theme } from '../theme';
 
 export function SettingsScreen() {
   const navigation = useNavigation();
-  const { settings, updateSettings, checklists } = useAppStore();
+  const { settings, updateSettings, checklists, downgradeFromPro } = useAppStore();
   const usedSlots = checklists.length;
+  // Pro users see "∞"; free users see the numeric cap.
   const maxSlots = settings.isPro ? '∞' : '3';
+
+  function handleManageSubscription() {
+    // In production this would open the OS's subscription management flow
+    // (StoreKit on iOS, Google Play Billing on Android). "Simulate Downgrade"
+    // lets us test gated-feature removal during development.
+    Alert.alert(
+      'Manage Subscription',
+      'In production this opens the App Store / Google Play subscription management page.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Simulate Downgrade',
+          style: 'destructive',
+          onPress: () => {
+            downgradeFromPro();
+            Alert.alert(
+              'Downgraded to free',
+              'You are now on the free plan. Checklists beyond 3 have been removed.'
+            );
+          },
+        },
+      ]
+    );
+  }
 
   return (
     <SafeAreaView style={s.safe}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
-        {/* Topbar */}
+
+        {/* ── Topbar ─────────────────────────────────────────────────────── */}
         <View style={s.topbar}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
             <Ionicons name="arrow-back" size={22} color={theme.colors.textSecondary} />
@@ -30,30 +74,33 @@ export function SettingsScreen() {
           <Text style={s.title}>Settings</Text>
         </View>
 
-        {/* Account */}
+        {/* ── Account card ─────────────────────────────────────────────────── */}
         <View style={s.card}>
           <Text style={s.cardLabel}>Account</Text>
           <View style={s.accountRow}>
+            {/* Initials avatar — in production this would be a real profile photo */}
             <View style={s.avatar}>
               <Text style={s.avatarText}>JD</Text>
             </View>
             <View>
               <Text style={s.accountName}>John Doe</Text>
               <Text style={s.accountMeta}>
-                {settings.isPro ? 'Pro plan' : `Free plan · ${usedSlots}/${maxSlots} checklists`}
+                {settings.isPro
+                  ? 'Pro plan · Unlimited checklists'
+                  : `Free plan · ${usedSlots}/${maxSlots} checklists`}
               </Text>
             </View>
           </View>
         </View>
 
-        {/* Pro banner */}
+        {/* ── Pro upgrade banner (free users only) ─────────────────────────── */}
         {!settings.isPro && (
           <View style={s.proBanner}>
             <View style={{ flex: 1 }}>
               <Text style={s.proTitle}>
                 <MaterialCommunityIcons name="crown" size={13} /> Upgrade to Pro
               </Text>
-              <Text style={s.proSub}>Unlimited lists · No ads · Geofencing</Text>
+              <Text style={s.proSub}>Unlimited lists · No ads · Geofencing · Multi-stop</Text>
             </View>
             <TouchableOpacity
               style={s.proBtn}
@@ -64,7 +111,24 @@ export function SettingsScreen() {
           </View>
         )}
 
-        {/* Preferences */}
+        {/* ── Subscription management (Pro users only) ─────────────────────── */}
+        {settings.isPro && (
+          <TouchableOpacity style={s.card} onPress={handleManageSubscription}>
+            <View style={s.setupRow}>
+              <View>
+                <Text style={s.setupTitle}>
+                  <MaterialCommunityIcons name="crown" size={14} color={theme.colors.purple} />{' '}
+                  Manage subscription
+                </Text>
+                <Text style={s.setupSub}>Cancel or change your Pro plan</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={theme.colors.textTertiary} />
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {/* ── Preferences ──────────────────────────────────────────────────── */}
+        {/* Each toggle writes directly to the Zustand store via updateSettings() */}
         <View style={s.card}>
           <Text style={s.cardLabel}>Preferences</Text>
           <ToggleRow
@@ -89,7 +153,7 @@ export function SettingsScreen() {
           />
         </View>
 
-        {/* Car detection setup */}
+        {/* ── Car detection setup ──────────────────────────────────────────── */}
         <TouchableOpacity
           style={s.card}
           onPress={() => (navigation as any).navigate('CarDetectionSetup')}
@@ -97,19 +161,20 @@ export function SettingsScreen() {
           <View style={s.setupRow}>
             <View>
               <Text style={s.setupTitle}>Car detection setup</Text>
-              <Text style={s.setupSub}>Configure Siri Shortcuts / Android automation</Text>
+              <Text style={s.setupSub}>Configure iOS Shortcuts / Android automation</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color={theme.colors.textTertiary} />
           </View>
         </TouchableOpacity>
 
-        {/* Stats */}
+        {/* ── Stats grid ───────────────────────────────────────────────────── */}
         <View style={s.statGrid}>
           <View style={s.statCard}>
             <Text style={s.statVal}>{settings.totalTrips}</Text>
             <Text style={s.statLabel}>Total trips</Text>
           </View>
           <View style={s.statCard}>
+            {/* Show a flame emoji when streaks are enabled; "—" otherwise */}
             <Text style={s.statVal}>
               {settings.tripStreaks ? `🔥 ${settings.currentStreak}` : '—'}
             </Text>
@@ -117,12 +182,14 @@ export function SettingsScreen() {
           </View>
         </View>
 
-        {/* App version */}
         <Text style={s.version}>CheckDrive v1.0.0</Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+// ── Sub-component ─────────────────────────────────────────────────────────────
+// Extracted to avoid repeating the row layout and text styles for each toggle.
 
 function ToggleRow({
   title,
@@ -140,6 +207,7 @@ function ToggleRow({
       <Switch
         value={value}
         onValueChange={onToggle}
+        // `trackColor` sets the off-state and on-state track colours separately.
         trackColor={{ false: theme.colors.borderSecondary, true: theme.colors.primary }}
         thumbColor="#fff"
       />
