@@ -15,7 +15,10 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.checkdrive.app",
       "infoPlist": {
-        "UIBackgroundModes": ["fetch", "remote-notification"]
+        "UIBackgroundModes": [
+          "fetch",
+          "remote-notification"
+        ]
       }
     },
     "android": {
@@ -33,8 +36,15 @@
               "scheme": "checkdrive"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
+      ],
+      "permissions": [
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.WAKE_LOCK"
       ]
     },
     "web": {
@@ -54,8 +64,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "your-eas-project-id"
+        "projectId": "49a7d2a4-4eee-43ff-903f-b0aa5debd87f"
       }
-    }
+    },
+    "owner": "arrqwhead"
   }
 }
