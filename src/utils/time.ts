@@ -6,7 +6,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Converts an ISO timestamp string into a user-readable label.
-// The function intentionally avoids internationalisation libraries to keep
+// The function intentionally avoids internationalization libraries to keep
 // the bundle light — this app targets a narrow set of English-language users.
 export function formatTimeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();

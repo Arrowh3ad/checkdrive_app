@@ -12,7 +12,7 @@
 // │   ├─ tripLogs[]         persisted → AsyncStorage                       │
 // │   ├─ settings           persisted → AsyncStorage                       │
 // │   ├─ connectedToVehicle persisted → AsyncStorage                       │
-// │   └─ activeMultiStopTrip  NOT persisted (resets on every app launch)   │
+// │   └─ activeRuns         persisted → AsyncStorage (resume in-progress)  │
 // └─────────────────────────────────────────────────────────────────────────┘
 //
 // WHY ZUSTAND?
@@ -25,7 +25,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Checklist, TripLog, Settings } from '../types';
+import { Checklist, TripLog, Settings, StopStatus, ActiveRun } from '../types';
 import { generateId } from '../utils/ids';
 
 // ── Demo / seed data ──────────────────────────────────────────────────────────
@@ -72,7 +72,7 @@ const defaultChecklists: Checklist[] = [
       {
         id: 'stop-1',
         name: 'Home — depart',
-        subtitle: '6 items checked · 7:30am',
+        subtitle: '6 items',
         items: [
           { id: 'sp1-1', label: 'Luggage packed' },
           { id: 'sp1-2', label: 'Snacks & drinks' },
@@ -81,22 +81,20 @@ const defaultChecklists: Checklist[] = [
           { id: 'sp1-5', label: 'Maps downloaded' },
           { id: 'sp1-6', label: 'House secured' },
         ],
-        status: 'done',
-        // Pre-marking all items so the demo shows a completed first stop.
-        checkedItems: ['sp1-1', 'sp1-2', 'sp1-3', 'sp1-4', 'sp1-5', 'sp1-6'],
-        completedAt: new Date().toISOString(),
+        status: 'current',
+        checkedItems: [],
       },
       {
         id: 'stop-2',
         name: 'Rest stop — Gas & snacks',
-        subtitle: '3 items · tap to check off',
+        subtitle: '3 items',
         items: [
           { id: 'sp2-1', label: 'Fill gas tank' },
           { id: 'sp2-2', label: 'Grab snacks & water' },
           { id: 'sp2-3', label: 'Bathroom break (kids!)' },
         ],
-        status: 'current',
-        checkedItems: ['sp2-1'], // one item pre-checked for the demo
+        status: 'upcoming',
+        checkedItems: [],
       },
       {
         id: 'stop-3',
@@ -185,32 +183,43 @@ interface AppStore {
   settings: Settings;
   connectedToVehicle: boolean;
 
-  // Tracks the in-progress multi-stop trip that the app is currently running.
-  // This is intentionally NOT persisted so a stale trip from a previous session
-  // never reappears on cold start (see `partialize` below).
-  activeMultiStopTrip: { checklistId: string; stopIndex: number } | null;
+  // In-progress checklist runs (both regular and multi-stop). Persisted so the
+  // user can navigate away and resume later, and so the Home screen can show a
+  // "continue where you left off" banner. At most one entry per checklistId.
+  activeRuns: ActiveRun[];
 
   // ── Actions ────────────────────────────────────────────────────────────────
+  // `Omit<Checklist, 'id' | 'createdAt'>` is a TypeScript built-in that produces
+  // a copy of the Checklist type with those two keys removed — callers don't
+  // supply them because the action generates them internally.
   addChecklist: (data: Omit<Checklist, 'id' | 'createdAt'>) => void;
+  // `Partial<Checklist>` makes every field optional — callers only pass the
+  // fields they want to change; everything else is left as-is via the spread.
   updateChecklist: (id: string, data: Partial<Checklist>) => void;
   deleteChecklist: (id: string) => void;
+  // Pro: creates a deep copy of an existing checklist with fresh IDs and
+  // "Copy of …" prefix. Appended to the end of the checklist list.
+  duplicateChecklist: (id: string) => void;
   addTripLog: (log: Omit<TripLog, 'id'>) => void;
+  // Pro: removes specific trip log entries by ID (multi-select delete).
+  deleteTripLogs: (ids: string[]) => void;
   updateSettings: (data: Partial<Settings>) => void;
   setConnectedToVehicle: (connected: boolean) => void;
 
   // Sets or clears the default checklist (Pro feature). Pass null to clear.
   setDefaultChecklist: (id: string | null) => void;
 
-  // Multi-stop trip lifecycle:
-  //   startMultiStopTrip   → called by MultiStopScreen on mount
-  //   advanceMultiStopStop → called when CarPlay fires again mid-trip, or the
-  //                          user taps "Continue to next stop"
-  //   rewindMultiStopStop  → called when the user taps "Undo last advance"
-  //   endMultiStopTrip     → called on trip completion or MultiStopScreen unmount
-  startMultiStopTrip: (checklistId: string, stopIndex: number) => void;
-  advanceMultiStopStop: () => void;
-  rewindMultiStopStop: () => void;
-  endMultiStopTrip: () => void;
+  // Active-run lifecycle (regular + multi-stop):
+  //   saveActiveRun        → upsert (create or replace) a run by checklistId.
+  //                          Called by the run screens on every change so
+  //                          progress is auto-saved.
+  //   clearActiveRun       → remove a run (on completion, or when the user
+  //                          discards it from the Home banner).
+  //   advanceActiveRunStop → multi-stop only: bump the run's stopIndex. Called
+  //                          by useCarDetection when CarPlay reconnects mid-trip.
+  saveActiveRun: (run: ActiveRun) => void;
+  clearActiveRun: (checklistId: string) => void;
+  advanceActiveRunStop: (checklistId: string) => void;
 
   // Called when the user cancels their Pro subscription. Trims checklists to 3
   // and clears any Pro-only state.
@@ -219,7 +228,7 @@ interface AppStore {
 
 // ── Store factory ─────────────────────────────────────────────────────────────
 // `persist(...)` wraps the store with Zustand's persist middleware, which
-// serialises state to JSON and writes it to AsyncStorage after every `set()`
+// serializes state to JSON and writes it to AsyncStorage after every `set()`
 // call. On the next app launch, the middleware rehydrates from AsyncStorage
 // before the first render.
 
@@ -239,7 +248,7 @@ export const useAppStore = create<AppStore>()(
         defaultChecklistId: null,
       },
       connectedToVehicle: true,
-      activeMultiStopTrip: null,
+      activeRuns: [],
 
       // ── Checklist actions ────────────────────────────────────────────────
       addChecklist: (data) =>
@@ -262,6 +271,9 @@ export const useAppStore = create<AppStore>()(
       deleteChecklist: (id) =>
         set((state) => ({
           checklists: state.checklists.filter((cl) => cl.id !== id),
+          // Drop any in-progress run for the deleted checklist so a dangling
+          // run can't linger on the Home banner.
+          activeRuns: state.activeRuns.filter((r) => r.checklistId !== id),
           // If the deleted checklist was the default, clear that setting too
           // so the user isn't left with a dangling reference.
           settings:
@@ -270,13 +282,54 @@ export const useAppStore = create<AppStore>()(
               : state.settings,
         })),
 
+      duplicateChecklist: (id) =>
+        set((state) => {
+          const original = state.checklists.find((cl) => cl.id === id);
+          if (!original) return {};
+          return {
+            checklists: [
+              ...state.checklists,
+              {
+                ...original,
+                id: generateId(),
+                name: `Copy of ${original.name}`,
+                createdAt: new Date().toISOString(),
+                // Regenerate IDs for all items and stops so there are no
+                // duplicate IDs in the store (which are used as React keys
+                // and checked-state map keys).
+                startItems: original.startItems.map((item) => ({ ...item, id: generateId() })),
+                endItems:   original.endItems.map((item) => ({ ...item, id: generateId() })),
+                stops: original.stops.map((stop, idx) => ({
+                  ...stop,
+                  id: generateId(),
+                  items: stop.items.map((item) => ({ ...item, id: generateId() })),
+                  // Reset run-time state: no pre-checked items, first stop is current.
+                  checkedItems: [],
+                  completedAt: undefined,
+                  status: (idx === 0 ? 'current' : 'upcoming') as StopStatus,
+                })),
+              },
+            ],
+          };
+        }),
+
       // ── Trip log actions ─────────────────────────────────────────────────
       addTripLog: (log) =>
+        set((state) => {
+          // Pro users get a much higher cap so the full history stays available.
+          // Free users keep only the last 10 entries (enough for the HomeScreen
+          // recent-trips widget).
+          const cap = state.settings.isPro ? 500 : 10;
+          return {
+            tripLogs: [{ ...log, id: generateId() }, ...state.tripLogs.slice(0, cap - 1)],
+            // Bump the total-trips counter so the Settings stats stay accurate.
+            settings: { ...state.settings, totalTrips: state.settings.totalTrips + 1 },
+          };
+        }),
+
+      deleteTripLogs: (ids) =>
         set((state) => ({
-          // Prepend the new log and cap the list at 50 entries to bound storage.
-          tripLogs: [{ ...log, id: generateId() }, ...state.tripLogs.slice(0, 49)],
-          // Bump the total-trips counter so the Settings stats stay accurate.
-          settings: { ...state.settings, totalTrips: state.settings.totalTrips + 1 },
+          tripLogs: state.tripLogs.filter((log) => !ids.includes(log.id)),
         })),
 
       // ── Settings actions ─────────────────────────────────────────────────
@@ -290,30 +343,30 @@ export const useAppStore = create<AppStore>()(
           settings: { ...state.settings, defaultChecklistId: id },
         })),
 
-      // ── Multi-stop trip actions ───────────────────────────────────────────
-      startMultiStopTrip: (checklistId, stopIndex) =>
-        set({ activeMultiStopTrip: { checklistId, stopIndex } }),
+      // ── Active-run actions ─────────────────────────────────────────────────
+      saveActiveRun: (run) =>
+        set((state) => {
+          // Upsert: replace the existing run for this checklist, or append a
+          // new one. Filtering then appending keeps the array to one entry
+          // per checklistId without needing a findIndex/splice dance.
+          const others = state.activeRuns.filter((r) => r.checklistId !== run.checklistId);
+          return { activeRuns: [...others, run] };
+        }),
 
-      advanceMultiStopStop: () =>
+      clearActiveRun: (checklistId) =>
         set((state) => ({
-          // Guard: if activeMultiStopTrip is null (shouldn't happen in practice),
-          // keep it null rather than incrementing into undefined state.
-          activeMultiStopTrip: state.activeMultiStopTrip
-            ? {
-                ...state.activeMultiStopTrip,
-                stopIndex: state.activeMultiStopTrip.stopIndex + 1,
-              }
-            : null,
+          activeRuns: state.activeRuns.filter((r) => r.checklistId !== checklistId),
         })),
 
-      endMultiStopTrip: () => set({ activeMultiStopTrip: null }),
-
-      rewindMultiStopStop: () =>
+      advanceActiveRunStop: (checklistId) =>
         set((state) => ({
-          activeMultiStopTrip:
-            state.activeMultiStopTrip && state.activeMultiStopTrip.stopIndex > 0
-              ? { ...state.activeMultiStopTrip, stopIndex: state.activeMultiStopTrip.stopIndex - 1 }
-              : state.activeMultiStopTrip,
+          activeRuns: state.activeRuns.map((r) =>
+            // Only bump multi-stop runs for the matching checklist. The screen
+            // is subscribed to activeRuns, so it re-renders onto the new stop.
+            r.checklistId === checklistId && r.isMultiStop
+              ? { ...r, stopIndex: r.stopIndex + 1, updatedAt: new Date().toISOString() }
+              : r
+          ),
         })),
 
       // ── Pro downgrade ────────────────────────────────────────────────────
@@ -327,8 +380,9 @@ export const useAppStore = create<AppStore>()(
           },
           // Truncate to 3 checklists (free plan limit).
           checklists: state.checklists.slice(0, 3),
-          // Cancel any in-progress multi-stop trip.
-          activeMultiStopTrip: null,
+          // Cancel any in-progress runs (multi-stop is Pro-only, and the kept
+          // checklists may differ from what a run pointed at).
+          activeRuns: [],
         })),
     }),
 
@@ -338,14 +392,16 @@ export const useAppStore = create<AppStore>()(
       storage: createJSONStorage(() => AsyncStorage),
 
       // `partialize` controls which slices of state get written to disk.
-      // `activeMultiStopTrip` is deliberately excluded: a trip in progress
-      // should always reset to null on a fresh app launch so stale trip state
-      // never confuses the user.
+      // `activeRuns` IS persisted now: an in-progress trip should survive an
+      // app restart so the user can resume it (and the Home banner reflects
+      // it). Stale runs that point at deleted checklists are filtered out at
+      // the Home banner and cleared by deleteChecklist / downgradeFromPro.
       partialize: (state) => ({
         checklists: state.checklists,
         tripLogs: state.tripLogs,
         settings: state.settings,
         connectedToVehicle: state.connectedToVehicle,
+        activeRuns: state.activeRuns,
       }),
     }
   )

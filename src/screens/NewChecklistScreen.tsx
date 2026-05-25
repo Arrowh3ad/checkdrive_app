@@ -58,15 +58,6 @@ import { theme } from '../theme';
 import { RootStackParamList, StopStatus } from '../types';
 import { generateId } from '../utils/ids';
 
-import { Dimensions } from 'react-native';
-
-// Screen width 
-// - 32px (card paddingHorizontal: 16 * 2) 
-// - 24px (three 8px gaps between 4 columns)
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const CELL_SIZE = (SCREEN_WIDTH - 32 - 24) / 4;
-
-
 type Route = RouteProp<RootStackParamList, 'NewChecklist'>;
 
 // ── Appearance constants ──────────────────────────────────────────────────────
@@ -78,7 +69,7 @@ const PRESET_ICONS: string[] = [
   'bag-handle-outline','cart-outline',   'airplane-outline', 'fitness-outline',
 ];
 
-// The 8 colour themes. Each theme is a `{ bg, color }` pair — bg is the icon's
+// The 8 color themes. Each theme is a `{ bg, color }` pair — bg is the icon's
 // background square, color is the icon foreground (also used for the checkmark
 // inside the swatch).
 const PRESET_THEMES = [
@@ -115,7 +106,7 @@ export function NewChecklistScreen() {
   const isEditing = !!editingChecklist;
 
   // ── Form state ─────────────────────────────────────────────────────────────
-  // All state is initialised from the existing checklist in edit mode, or from
+  // All state is initialized from the existing checklist in edit mode, or from
   // sensible defaults in create mode.
 
   const [name, setName] = useState(editingChecklist?.name ?? '');
@@ -124,7 +115,7 @@ export function NewChecklistScreen() {
   const [endOfTrip, setEndOfTrip] = useState(editingChecklist?.endOfTripEnabled ?? true);
   const [isMultiStop, setIsMultiStop] = useState(editingChecklist?.isMultiStop ?? false);
 
-  // Appearance state — icon, background colour, and optional custom photo.
+  // Appearance state — icon, background color, and optional custom photo.
   const [selectedIcon, setSelectedIcon] = useState(
     editingChecklist?.iconName ?? 'list-outline'
   );
@@ -147,7 +138,7 @@ export function NewChecklistScreen() {
     editingChecklist?.endItems.map((i) => i.label) ?? []
   );
 
-  // Multi-stop mode — initialised with one blank stop for create mode, or
+  // Multi-stop mode — initialized with one blank stop for create mode, or
   // the existing stops mapped to the editable format.
   const [stops, setStops] = useState<EditableStop[]>(
     editingChecklist?.isMultiStop && editingChecklist.stops.length > 0
@@ -173,7 +164,10 @@ export function NewChecklistScreen() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaType.Images,
+      // `MediaTypeOptions` is the correct API for expo-image-picker 55.x (SDK 55).
+      // `MediaType` (the newer enum) doesn't exist in this version and would throw
+      // "Cannot read property 'Images' of undefined" at runtime.
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],  // force square crop so the icon circle looks right
       quality: 0.8,
@@ -412,11 +406,6 @@ export function NewChecklistScreen() {
                 // An icon is "active" when it's selected AND no custom photo overrides it.
                 const active = selectedIcon === icon && !iconUri;
                 return (
-
-
-                  //MARKER  
-
-
                   <TouchableOpacity
                     key={icon}
                     style={[
@@ -454,7 +443,7 @@ export function NewChecklistScreen() {
                     ]}
                     onPress={() => selectTheme(t.bg, t.color)}
                   >
-                    {/* Checkmark shows which colour is selected */}
+                    {/* Checkmark shows which color is selected */}
                     {active && (
                       <Ionicons name="checkmark" size={13} color={t.color} />
                     )}
@@ -835,8 +824,6 @@ const s = StyleSheet.create({
 
 
 
-
-//MARKER
 // Appearance card styles
 const ap = StyleSheet.create({
   previewRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },

@@ -4,28 +4,40 @@
 // This screen is used for checklists where `isMultiStop === false`. For
 // multi-stop checklists, see MultiStopScreen.
 //
-// FEATURES
-//   • Start / End tab switcher (only rendered when `endOfTripEnabled` is true)
-//   • Animated-ish progress bar showing what percentage of items are checked
-//   • Tap-to-toggle checkbox rows
-//   • "Reset" button to uncheck everything for a fresh run
-//   • "Done" button that writes a TripLog entry and pops the screen
+// TWO-PHASE COMPLETION
+//   Start-of-trip items are checked at departure; end-of-trip items on arrival,
+//   possibly hours later. So a checklist with BOTH lists is run in two phases:
+//     • "Complete departure" finishes the start list, marks the run as
+//       in-progress (startDone), and switches to the arrival tab. It does NOT
+//       write a history entry.
+//     • "Complete trip" (on the arrival tab) writes ONE combined TripLog
+//       spanning both lists and clears the run.
+//   AUTO SINGLE-PHASE: when only one list has items (start-only, or end-only),
+//   there is no tab switcher — a single "Complete trip" button finalizes
+//   immediately.
+//
+// AUTO-SAVE
+//   Progress is mirrored into the store as an ActiveRun on every change, so
+//   navigating back never loses it. Reopening the checklist resumes exactly
+//   where the user left off, and the Home screen shows a "resume" banner.
+//   The run is cleared when the trip is finalized or fully reset.
 //
 // STATE MODEL
-//   `checked` — a `Record<string, boolean>` mapping each item's ID to its
-//   checked state. We use an object (not an array of booleans) so lookups by
-//   ID are O(1) without scanning the items array.
-//   `activeTab` — 'start' | 'end'; switching tabs also resets `checked` so
-//   items don't bleed between the two tabs.
+//   `checked` — `Record<string, boolean>` (item ID → checked); O(1) lookups.
+//   `checkedAt` — `Record<string, string>` (item ID → ISO timestamp).
+//   `activeTab` — 'start' | 'end'. A single `checked` map covers both tabs
+//   (item IDs are unique across the two lists), so switching tabs does NOT
+//   clear progress.
+//   `startDone` — whether the departure phase has been completed.
 //
 // NAVIGATION
 // Reached from:
-//   HomeScreen (tap a checklist row)
+//   HomeScreen (tap a checklist row, or the resume banner)
 //   App.tsx notification listener (tap a push notification)
-// Params: `{ checklistId: string }` — used to look up the checklist from the store.
+// Params: `{ checklistId: string; tab?: 'start' | 'end' }`.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -39,7 +51,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../store/useAppStore';
 import { theme } from '../theme';
-import { RootStackParamList } from '../types';
+import { RootStackParamList, ActiveRun } from '../types';
 
 // `RouteProp<RootStackParamList, 'ChecklistRun'>` gives us a typed `params`
 // object: TypeScript knows `params.checklistId` is a `string`.
@@ -48,18 +60,91 @@ type Route = RouteProp<RootStackParamList, 'ChecklistRun'>;
 export function ChecklistRunScreen() {
   const navigation = useNavigation();
   const { params } = useRoute<Route>();
-  const { checklists, addTripLog } = useAppStore();
+  const { checklists, addTripLog, settings, activeRuns, saveActiveRun, clearActiveRun } =
+    useAppStore();
 
   // Look up the checklist by the ID passed as a navigation param.
   // `.find` returns `Checklist | undefined` — we guard below.
   const checklist = checklists.find((c) => c.id === params.checklistId);
 
-  // Which tab is active: 'start' (before trip) or 'end' (on arrival).
-  const [activeTab, setActiveTab] = useState<'start' | 'end'>('start');
+  // Any previously-saved progress for this checklist (resume support). Found
+  // once at mount via a ref-free lookup; `activeRuns` is stable enough for the
+  // initial seed (we don't want this screen to re-seed on every store change).
+  const existingRun = activeRuns.find(
+    (r) => r.checklistId === params.checklistId && !r.isMultiStop
+  );
 
-  // Map from item ID → checked boolean. Using a Record<string, boolean> means
-  // checked-state lookup is O(1) without scanning the array.
-  const [checked, setChecked] = useState<Record<string, boolean>>({});
+  // Which phases this checklist actually has. "Auto single-phase": if only one
+  // side has items, we hide the tab switcher and show just that list.
+  const hasStart = !!checklist && checklist.startItems.length > 0;
+  const hasEnd =
+    !!checklist && checklist.endOfTripEnabled && checklist.endItems.length > 0;
+  const twoPhase = hasStart && hasEnd;
+
+  // Pick the initial tab. Priority: an explicit nav param (disconnect → 'end'),
+  // then the saved run's phase, then the only available phase, then 'start'.
+  // A param/phase pointing at a non-existent list falls back sensibly.
+  function initialTab(): 'start' | 'end' {
+    const wanted = params.tab ?? existingRun?.phase;
+    if (wanted === 'end' && hasEnd) return 'end';
+    if (wanted === 'start' && hasStart) return 'start';
+    if (!hasStart && hasEnd) return 'end'; // end-only checklist
+    return 'start';
+  }
+
+  // Which tab is active: 'start' (before trip) or 'end' (on arrival).
+  const [activeTab, setActiveTab] = useState<'start' | 'end'>(initialTab);
+
+  // Map from item ID → checked boolean (covers both tabs; IDs are unique).
+  const [checked, setChecked] = useState<Record<string, boolean>>(
+    existingRun?.checked ?? {}
+  );
+  // Pro: ISO timestamp at which each item was checked. Cleared on uncheck/reset.
+  const [checkedAt, setCheckedAt] = useState<Record<string, string>>(
+    existingRun?.checkedAt ?? {}
+  );
+  // Whether the departure (start) phase has been completed.
+  const [startDone, setStartDone] = useState<boolean>(existingRun?.startDone ?? false);
+
+  // Preserve the original start time across the many auto-saves below.
+  const startedAtRef = useRef(existingRun?.startedAt ?? new Date().toISOString());
+
+  // ── Auto-save ──────────────────────────────────────────────────────────────
+  // Mirror local progress into the store on every change so back-navigation
+  // never loses it. A run is only kept while it's "non-empty" (something checked
+  // or the departure marked done); otherwise we clear it so an untouched open
+  // doesn't leave a phantom entry on the Home banner. We skip the first render
+  // (the state was just seeded from the store — no need to write it straight
+  // back and bump `updatedAt`).
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (!checklist) return;
+    const anyChecked = Object.values(checked).some(Boolean);
+    if (anyChecked || startDone) {
+      const run: ActiveRun = {
+        checklistId: checklist.id,
+        isMultiStop: false,
+        startedAt: startedAtRef.current,
+        updatedAt: new Date().toISOString(),
+        phase: activeTab,
+        startDone,
+        checked,
+        checkedAt,
+        // Multi-stop fields stay at their empty defaults for a regular run.
+        stopIndex: 0,
+        stopChecked: {},
+        stopCheckedAt: {},
+      };
+      saveActiveRun(run);
+    } else {
+      clearActiveRun(checklist.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checked, checkedAt, startDone, activeTab]);
 
   // Guard: show a clear error state if the checklist was deleted while this
   // screen was on the navigation stack (can happen if the user deletes it from
@@ -78,36 +163,119 @@ export function ChecklistRunScreen() {
   // Avoid dividing by zero when a tab has no items.
   const pct = items.length > 0 ? Math.round((checkedCount / items.length) * 100) : 0;
 
-  // Flip a single item's checked state.
+  // Flip a single item's checked state and record/clear its timestamp.
   function toggle(id: string) {
-    // Functional form of setChecked ensures we're reading the latest state
-    // even if multiple taps fire in quick succession.
+    const wasChecked = checked[id] ?? false;
     setChecked((prev) => ({ ...prev, [id]: !prev[id] }));
+    // Pro: record or remove the timestamp based on the new checked state.
+    setCheckedAt((prev) => {
+      if (!wasChecked) return { ...prev, [id]: new Date().toISOString() };
+      const copy = { ...prev };
+      delete copy[id];
+      return copy;
+    });
   }
 
-  // Clear all checked items — lets the user restart the same checklist.
+  // Clear all checked items across both tabs and reset the departure flag —
+  // lets the user restart fresh. The auto-save effect then clears the run.
   function resetAll() {
     setChecked({});
+    setCheckedAt({});
+    setStartDone(false);
   }
 
-  // Switch between Start / End tabs and reset checked state so items from one
-  // tab don't bleed visually into the other.
+  // Switch tabs WITHOUT clearing checked state. Start and end items all have
+  // unique IDs, so a single `checked` map naturally tracks both tabs at once.
   function switchTab(tab: 'start' | 'end') {
     setActiveTab(tab);
-    setChecked({});
   }
 
-  // Write a TripLog entry to the store and pop back to HomeScreen.
+  // Check/uncheck every item in the current tab at once.
+  // If all are already checked → uncheck all; otherwise → check all.
+  function toggleAll() {
+    const allChecked = items.every((it) => checked[it.id]);
+    const now = new Date().toISOString();
+    if (allChecked) {
+      // Uncheck: remove every current-tab item from both maps.
+      setChecked((prev) => {
+        const copy = { ...prev };
+        items.forEach((it) => { delete copy[it.id]; });
+        return copy;
+      });
+      setCheckedAt((prev) => {
+        const copy = { ...prev };
+        items.forEach((it) => { delete copy[it.id]; });
+        return copy;
+      });
+    } else {
+      // Check all that aren't already checked.
+      setChecked((prev) => {
+        const next = { ...prev };
+        items.forEach((it) => { next[it.id] = true; });
+        return next;
+      });
+      setCheckedAt((prev) => {
+        const next = { ...prev };
+        items.forEach((it) => { if (!prev[it.id]) next[it.id] = now; });
+        return next;
+      });
+    }
+  }
+
+  // ── Phase 1 → Phase 2: complete departure ───────────────────────────────────
+  // Two-phase only. Marks the start list done and switches to the arrival tab
+  // WITHOUT writing history — the trip stays "in progress" until arrival. The
+  // auto-save effect persists the new phase/startDone for the Home banner.
+  function completeDeparture() {
+    setStartDone(true);
+    setActiveTab('end');
+  }
+
+  // ── Finalize: write a single combined TripLog and clear the run ──────────────
+  // Used by single-phase checklists and by the arrival phase of two-phase ones.
   function markDone() {
+    if (!checklist) return; // narrows `checklist` for the rest of this closure
+    // Combine the lists that actually exist (auto single-phase friendly).
+    const allItems = [
+      ...(hasStart ? checklist.startItems : []),
+      ...(hasEnd ? checklist.endItems : []),
+    ];
+    const totalChecked = allItems.filter((it) => checked[it.id]).length;
+
     addTripLog({
       checklistId: checklist.id,
       checklistName: checklist.name,
-      checkedCount,
-      totalCount: items.length,
+      checkedCount: totalChecked,
+      totalCount: allItems.length,
       timestamp: new Date().toISOString(),
-      isComplete: checkedCount === items.length,
+      isComplete: totalChecked === allItems.length,
+      // Pro: attach per-item timestamps and section labels so the history
+      // screen can group and display them clearly.
+      items: settings.isPro
+        ? [
+            ...(hasStart
+              ? checklist.startItems.map((item) => ({
+                  id: item.id,
+                  label: item.label,
+                  checkedAt: checkedAt[item.id],
+                  section: 'Start of trip',
+                }))
+              : []),
+            ...(hasEnd
+              ? checklist.endItems.map((item) => ({
+                  id: item.id,
+                  label: item.label,
+                  checkedAt: checkedAt[item.id],
+                  section: 'End of trip',
+                }))
+              : []),
+          ]
+        : undefined,
     });
-    Alert.alert('Trip complete!', `${checkedCount}/${items.length} items checked.`, [
+    // The trip is finished — remove its in-progress run so the Home banner and
+    // resume state are cleared.
+    clearActiveRun(checklist.id);
+    Alert.alert('Trip complete!', `${totalChecked}/${allItems.length} items checked.`, [
       { text: 'OK', onPress: () => navigation.goBack() },
     ]);
   }
@@ -125,13 +293,23 @@ export function ChecklistRunScreen() {
           <Text style={s.title} numberOfLines={1}>{checklist.name}</Text>
         </View>
 
-        {/* ── Tab switcher (only for checklists with end-of-trip enabled) ── */}
-        {checklist.endOfTripEnabled && (
+        {/* ── Tab switcher (only for two-phase checklists) ──────────────────── */}
+        {/* Single-phase checklists skip this entirely — there's only one list. */}
+        {twoPhase && (
           <View style={s.tabs}>
             <TouchableOpacity
               style={[s.tab, activeTab === 'start' && s.tabActive]}
               onPress={() => switchTab('start')}
             >
+              {/* A small check appears once departure has been completed. */}
+              {startDone && (
+                <Ionicons
+                  name="checkmark-circle"
+                  size={13}
+                  color={theme.colors.primary}
+                  style={{ marginRight: 4 }}
+                />
+              )}
               <Text style={[s.tabText, activeTab === 'start' && s.tabTextActive]}>
                 Start of trip
               </Text>
@@ -144,6 +322,25 @@ export function ChecklistRunScreen() {
                 End of trip
               </Text>
             </TouchableOpacity>
+          </View>
+        )}
+
+        {/* ── Phase hint ────────────────────────────────────────────────────── */}
+        {/* Two-phase only: explains the current step so "complete" is unambiguous. */}
+        {twoPhase && (
+          <View style={s.phaseNote}>
+            <Ionicons
+              name={startDone ? 'flag' : 'information-circle'}
+              size={14}
+              color={theme.colors.primaryDeep}
+            />
+            <Text style={s.phaseNoteText}>
+              {startDone
+                ? 'Departure complete. Finish these arrival items when you reach your destination.'
+                : activeTab === 'start'
+                ? 'Check off your departure items, then tap “Complete departure”.'
+                : 'These are your arrival items — complete the trip once you arrive.'}
+            </Text>
           </View>
         )}
 
@@ -163,6 +360,19 @@ export function ChecklistRunScreen() {
 
         {/* ── Checklist items ─────────────────────────────────────────────── */}
         <View style={s.card}>
+          {/* Header row: item count + "All" toggle button */}
+          {items.length > 0 && (
+            <View style={s.itemsHeader}>
+              <Text style={s.itemsHeaderText}>
+                {items.length} item{items.length !== 1 ? 's' : ''}
+              </Text>
+              <TouchableOpacity onPress={toggleAll} hitSlop={8}>
+                <Text style={s.allBtnText}>
+                  {items.every((it) => checked[it.id]) ? 'None' : 'All'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
           {items.length === 0 ? (
             <Text style={{ color: theme.colors.textSecondary, fontSize: 14, paddingVertical: 8 }}>
               No items for this tab. Add them in edit mode.
@@ -181,7 +391,7 @@ export function ChecklistRunScreen() {
                     <Ionicons name="checkmark" size={13} color="#fff" />
                   )}
                 </View>
-                {/* Strike-through + muted colour when checked */}
+                {/* Strike-through + muted color when checked */}
                 <Text style={[s.checkLabel, checked[item.id] && s.checkLabelDone]}>
                   {item.label}
                 </Text>
@@ -191,15 +401,34 @@ export function ChecklistRunScreen() {
         </View>
 
         {/* ── Action buttons ───────────────────────────────────────────────── */}
+        {/* The primary button is phase-aware:
+              • two-phase / start tab, not yet departed → "Complete departure"
+                (marks the start done and moves to the arrival tab; no log yet)
+              • two-phase / start tab, already departed  → "Go to arrival items"
+              • two-phase / arrival tab, or single-phase → "Complete trip"
+                (writes the combined TripLog and exits)                        */}
         <View style={s.btnRow}>
           <TouchableOpacity style={s.btnSecondary} onPress={resetAll}>
             <Ionicons name="refresh" size={15} color={theme.colors.textPrimary} />
             <Text style={s.btnSecondaryText}> Reset</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={s.btnPrimary} onPress={markDone}>
-            <Ionicons name="checkmark-circle" size={15} color="#fff" />
-            <Text style={s.btnPrimaryText}> Done</Text>
-          </TouchableOpacity>
+
+          {twoPhase && activeTab === 'start' && !startDone ? (
+            <TouchableOpacity style={s.btnPrimary} onPress={completeDeparture}>
+              <Ionicons name="arrow-forward-circle" size={15} color="#fff" />
+              <Text style={s.btnPrimaryText}> Complete departure</Text>
+            </TouchableOpacity>
+          ) : twoPhase && activeTab === 'start' && startDone ? (
+            <TouchableOpacity style={s.btnPrimary} onPress={() => switchTab('end')}>
+              <Ionicons name="arrow-forward" size={15} color="#fff" />
+              <Text style={s.btnPrimaryText}> Go to arrival items</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={s.btnPrimary} onPress={markDone}>
+              <Ionicons name="checkmark-circle" size={15} color="#fff" />
+              <Text style={s.btnPrimaryText}> Complete trip</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
       </ScrollView>
@@ -225,9 +454,11 @@ const s = StyleSheet.create({
   },
   tab: {
     flex: 1,
+    flexDirection: 'row',
     paddingVertical: 7,
     borderRadius: theme.radius.sm,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   tabActive: {
     backgroundColor: theme.colors.bgPrimary,
@@ -236,6 +467,20 @@ const s = StyleSheet.create({
   },
   tabText: { fontSize: 13, fontWeight: '500', color: theme.colors.textSecondary },
   tabTextActive: { color: theme.colors.textPrimary },
+
+  // Green hint callout explaining the current phase (two-phase checklists only).
+  phaseNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: theme.colors.primaryLight,
+    borderWidth: 0.5,
+    borderColor: '#5DCAA5',
+    borderRadius: theme.radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  phaseNoteText: { flex: 1, fontSize: 12, color: theme.colors.primaryDeep, lineHeight: 17 },
 
   card: {
     backgroundColor: theme.colors.bgPrimary,
@@ -255,6 +500,15 @@ const s = StyleSheet.create({
     overflow: 'hidden', // clips the fill bar to the track's rounded corners
   },
   barFill: { height: '100%', backgroundColor: theme.colors.primary, borderRadius: 3 },
+
+  itemsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  itemsHeaderText: { fontSize: 12, color: theme.colors.textSecondary },
+  allBtnText: { fontSize: 13, fontWeight: '500', color: theme.colors.primary },
 
   checkRow: {
     flexDirection: 'row',

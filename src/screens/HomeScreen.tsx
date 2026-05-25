@@ -41,7 +41,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAppStore } from '../store/useAppStore';
 import { useCarDetection } from '../hooks/useCarDetection';
 import { theme } from '../theme';
-import { Checklist, RootStackParamList } from '../types';
+import { Checklist, RootStackParamList, ActiveRun } from '../types';
 import { formatTimeAgo } from '../utils/time';
 
 // Narrowing the navigation type to the 'Home' screen makes `navigation.navigate`
@@ -57,6 +57,9 @@ export function HomeScreen() {
     connectedToVehicle,
     deleteChecklist,
     setDefaultChecklist,
+    duplicateChecklist,
+    activeRuns,
+    clearActiveRun,
   } = useAppStore();
 
   // Mounting useCarDetection here registers the deep-link listener for the
@@ -73,6 +76,14 @@ export function HomeScreen() {
     tripLogs.length > 0
       ? Math.round((tripLogs.filter((l) => l.isComplete).length / tripLogs.length) * 100)
       : 0;
+
+  // In-progress runs to surface in the "continue where you left off" banner.
+  // Filter out any run whose checklist no longer exists (defensive — deletes
+  // already clear runs, but persisted data could theoretically drift), and show
+  // the most-recently-touched first.
+  const resumeRuns = activeRuns
+    .filter((run) => checklists.some((c) => c.id === run.checklistId))
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
   // Navigates to the correct run screen based on whether the checklist is
   // multi-stop (MultiStopScreen) or regular (ChecklistRunScreen).
@@ -146,6 +157,23 @@ export function HomeScreen() {
         onPress: () => navigation.navigate('NewChecklist', { checklistId: cl.id }),
       },
       {
+        text: settings.isPro ? 'Duplicate' : 'Duplicate (Pro)',
+        onPress: () => {
+          if (!settings.isPro) {
+            Alert.alert(
+              'Pro feature',
+              'Upgrade to Pro to duplicate checklists.',
+              [
+                { text: 'Not now', style: 'cancel' },
+                { text: 'Upgrade', onPress: () => navigation.navigate('Pro') },
+              ]
+            );
+            return;
+          }
+          duplicateChecklist(cl.id);
+        },
+      },
+      {
         text: 'Delete',
         style: 'destructive',
         onPress: () =>
@@ -164,6 +192,32 @@ export function HomeScreen() {
       },
       { text: 'Cancel', style: 'cancel' },
     ]);
+  }
+
+  // Short progress summary shown under a checklist name in the resume banner.
+  function resumeMeta(run: ActiveRun, cl: Checklist): string {
+    if (cl.isMultiStop) {
+      return `Stop ${run.stopIndex + 1} of ${cl.stops.length}`;
+    }
+    // Two-phase trips that have departed are awaiting their arrival items.
+    if (run.startDone) return 'Departed · arrival items pending';
+    // Otherwise count checked items across whichever lists this checklist has.
+    const hasEnd = cl.endOfTripEnabled && cl.endItems.length > 0;
+    const items = [...cl.startItems, ...(hasEnd ? cl.endItems : [])];
+    const count = items.filter((it) => run.checked[it.id]).length;
+    return `${count} item${count !== 1 ? 's' : ''} checked`;
+  }
+
+  // Confirm, then drop an in-progress run. The checklist itself is untouched.
+  function discardResume(cl: Checklist) {
+    Alert.alert(
+      'Discard progress?',
+      `Remove your in-progress run for "${cl.name}"? This won't delete the checklist.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Discard', style: 'destructive', onPress: () => clearActiveRun(cl.id) },
+      ]
+    );
   }
 
   return (
@@ -227,6 +281,49 @@ export function HomeScreen() {
             <Ionicons name="information-circle-outline" size={13} /> Set up auto-detection →
           </Text>
         </TouchableOpacity>
+
+        {/* ── Resume banner ───────────────────────────────────────────────── */}
+        {/* In-progress runs the user can jump back into. Tapping a row reopens
+            the run screen exactly where they left off; the ✕ discards it. */}
+        {resumeRuns.length > 0 && (
+          <>
+            <Text style={s.sectionLabel}>Continue where you left off</Text>
+            <View style={s.card}>
+              {resumeRuns.map((run, idx) => {
+                // Non-null: resumeRuns is already filtered to existing checklists.
+                const cl = checklists.find((c) => c.id === run.checklistId)!;
+                return (
+                  <View
+                    key={run.checklistId}
+                    style={[s.clRow, idx < resumeRuns.length - 1 && s.clRowBorder]}
+                  >
+                    <TouchableOpacity
+                      style={s.clMain}
+                      onPress={() => onChecklistPress(cl.id, cl.isMultiStop)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={s.resumeIcon}>
+                        <Ionicons name="play" size={14} color={theme.colors.primaryDeep} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.clName} numberOfLines={1}>{cl.name}</Text>
+                        <Text style={s.clMeta}>{resumeMeta(run, cl)}</Text>
+                      </View>
+                    </TouchableOpacity>
+                    {/* ✕ discard — its own touch target, outside the main row */}
+                    <TouchableOpacity
+                      style={s.menuBtn}
+                      onPress={() => discardResume(cl)}
+                      hitSlop={8}
+                    >
+                      <Ionicons name="close" size={18} color={theme.colors.textTertiary} />
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </View>
+          </>
+        )}
 
         {/* Ad placeholder — only shown to free users */}
         {!settings.isPro && (
@@ -308,7 +405,14 @@ export function HomeScreen() {
         </TouchableOpacity>
 
         {/* ── Recent trips ────────────────────────────────────────────────── */}
-        <Text style={s.sectionLabel}>Recent trips</Text>
+        <View style={s.sectionRow}>
+          <Text style={s.sectionLabel}>Recent trips</Text>
+          {settings.isPro && (
+            <TouchableOpacity onPress={() => navigation.navigate('TripHistory')}>
+              <Text style={s.viewAllLink}>View all →</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         <View style={s.card}>
           {recentLogs.length === 0 ? (
             <Text style={{ color: theme.colors.textSecondary, fontSize: 14 }}>
@@ -398,6 +502,11 @@ const s = StyleSheet.create({
   },
   adText: { fontSize: 12, color: theme.colors.textTertiary },
 
+  sectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   sectionLabel: {
     fontSize: 12,
     fontWeight: '500',
@@ -406,6 +515,7 @@ const s = StyleSheet.create({
     letterSpacing: 0.8,
     paddingHorizontal: 2,
   },
+  viewAllLink: { fontSize: 12, fontWeight: '500', color: theme.colors.purple },
   slotHint: { fontSize: 11, color: theme.colors.textTertiary, paddingHorizontal: 2, marginTop: -6 },
 
   card: {
@@ -435,6 +545,15 @@ const s = StyleSheet.create({
     overflow: 'hidden', // clips the custom photo image to the rounded rect
   },
   clIconImage: { width: 36, height: 36, borderRadius: theme.radius.md },
+  // Small accented circle for the resume banner's play icon.
+  resumeIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   clNameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   clName: { fontSize: 15, fontWeight: '500', color: theme.colors.textPrimary, flexShrink: 1 },
   clMeta: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 2 },

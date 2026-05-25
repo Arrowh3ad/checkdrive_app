@@ -71,14 +71,16 @@ export async function requestNotificationPermissions(): Promise<boolean> {
 // their car was detected. The data payload is what App.tsx reads on notification
 // tap to navigate to the correct screen.
 export async function sendTripStartNotification(
-  checklistName: string,
+  checklistName?: string,
   checklistId?: string,
   isMultiStop?: boolean
 ): Promise<void> {
   await Notifications.scheduleNotificationAsync({
     content: {
       title: 'Ready for your trip?',
-      body: `Tap to run your "${checklistName}" checklist`,
+      body: checklistName
+        ? `Tap to run your "${checklistName}" checklist`
+        : 'Tap to open CheckDrive',
       data: {
         trigger: 'car-connect',         // lets App.tsx distinguish checklist taps from other notifs
         checklistId: checklistId ?? null,
@@ -87,6 +89,31 @@ export async function sendTripStartNotification(
       sound: true,
     },
     // `trigger: null` → fire immediately, not on a schedule.
+    trigger: null,
+  });
+}
+
+// Fires an immediate notification when CarPlay/Android Auto disconnects,
+// reminding the user to run through their arrival (end-of-trip) items.
+// Mirrors sendTripStartNotification but uses a different trigger value so
+// App.tsx can route the tap to the end tab automatically.
+export async function sendTripEndNotification(
+  checklistName?: string,
+  checklistId?: string,
+): Promise<void> {
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Trip ended — check your arrival items',
+      body: checklistName
+        ? `Don't forget your "${checklistName}" end-of-trip checklist`
+        : 'Open CheckDrive to complete your end-of-trip checklist',
+      data: {
+        trigger: 'car-disconnect',
+        checklistId: checklistId ?? null,
+        isMultiStop: false,
+      },
+      sound: true,
+    },
     trigger: null,
   });
 }

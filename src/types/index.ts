@@ -56,6 +56,19 @@ export type Checklist = {
   createdAt: string;            // ISO timestamp; used for sorting / display
 };
 
+// Per-item record stored inside a TripLog (Pro only).
+// Captures the label and the exact moment the user tapped the checkbox.
+// `checkedAt` is undefined when the item was left unchecked.
+export type TripLogItem = {
+  id: string;
+  label: string;
+  checkedAt?: string; // ISO timestamp; absent when the item was skipped
+  // Human-readable group header, e.g. "Start of trip", "End of trip",
+  // "Stop 1 — Home — depart". Items with the same section are grouped
+  // together in TripHistoryScreen.
+  section?: string;
+};
+
 // A record of one completed (or partially completed) trip run. Stored in
 // `tripLogs` in the Zustand store and used to populate the "Recent trips"
 // list on HomeScreen and the stats widgets.
@@ -67,6 +80,44 @@ export type TripLog = {
   totalCount: number;
   timestamp: string;   // ISO timestamp of when the user tapped "Done"
   isComplete: boolean; // true only when checkedCount === totalCount
+  // Pro: per-item detail with individual check timestamps. Absent for free-plan logs.
+  items?: TripLogItem[];
+};
+
+// An in-progress checklist run, persisted to AsyncStorage so the user never
+// loses progress by navigating away. There is at most one active run per
+// checklist (keyed by `checklistId`). Regular and multi-stop checklists use
+// different subsets of the fields below — the irrelevant ones just stay at
+// their empty defaults.
+export type ActiveRun = {
+  checklistId: string;
+  isMultiStop: boolean;
+  startedAt: string;   // ISO timestamp of when the run began
+  updatedAt: string;   // ISO timestamp of the last change (newest-first on Home)
+
+  // ── Regular-trip fields (isMultiStop === false) ──────────────────────────
+  // Which phase/tab the user is currently working: 'start' = departure list,
+  // 'end' = arrival list.
+  phase: 'start' | 'end';
+  // True once the departure phase has been completed. This is what drives the
+  // two-phase flow — the trip is only logged to history when the arrival phase
+  // is finished, but `startDone` lets the Home banner show "departed, arrival
+  // pending" in the meantime.
+  startDone: boolean;
+  // item id → checked, spanning BOTH start and end items (their IDs are unique).
+  checked: Record<string, boolean>;
+  // item id → ISO timestamp it was checked (Pro per-item detail).
+  checkedAt: Record<string, string>;
+
+  // ── Multi-stop fields (isMultiStop === true) ─────────────────────────────
+  // Index of the stop the user is currently on.
+  stopIndex: number;
+  // Checked item IDs per stop index, e.g. `stopChecked[0] = ['sp1-1', 'sp1-3']`.
+  // Keeping it keyed by index means an undo + re-advance simply re-reads the
+  // existing entry, so progress on already-visited stops is never lost.
+  stopChecked: Record<number, string[]>;
+  // Per-stop check timestamps: `stopCheckedAt[stopIndex][itemId] = ISO string`.
+  stopCheckedAt: Record<number, Record<string, string>>;
 };
 
 // All persisted user preferences. Lives in `settings` inside the Zustand store.
@@ -90,10 +141,13 @@ export type Settings = {
 // absent when creating a new checklist.
 export type RootStackParamList = {
   Home: undefined;
-  ChecklistRun: { checklistId: string };
+  // `tab` is optional — omitting it defaults to 'start'. The disconnect
+  // notification passes 'end' so the screen opens straight to arrival items.
+  ChecklistRun: { checklistId: string; tab?: 'start' | 'end' };
   MultiStop: { checklistId: string };
   NewChecklist: { checklistId?: string } | undefined;
   Settings: undefined;
   Pro: undefined;
   CarDetectionSetup: undefined;
+  TripHistory: undefined; // Pro: full history with timestamps + multi-select delete
 };

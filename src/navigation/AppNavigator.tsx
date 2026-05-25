@@ -41,6 +41,7 @@ import { NewChecklistScreen } from '../screens/NewChecklistScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { ProScreen } from '../screens/ProScreen';
 import { CarDetectionSetupScreen } from '../screens/CarDetectionSetupScreen';
+import { TripHistoryScreen } from '../screens/TripHistoryScreen';
 
 // The generic parameter `<RootStackParamList>` makes `navigationRef.navigate()`
 // type-safe: TypeScript will error if you pass a screen name that doesn't exist
@@ -96,6 +97,7 @@ export function AppNavigator({ onReady }: { onReady?: () => void }) {
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="Pro" component={ProScreen} />
         <Stack.Screen name="CarDetectionSetup" component={CarDetectionSetupScreen} />
+        <Stack.Screen name="TripHistory" component={TripHistoryScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

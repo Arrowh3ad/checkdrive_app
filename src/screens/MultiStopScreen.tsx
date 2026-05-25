@@ -5,32 +5,36 @@
 // checklists, see ChecklistRunScreen.
 //
 // HOW MULTI-STOP WORKS
-//   1. The user opens this screen (from HomeScreen or a push notification).
-//   2. On mount, `startMultiStopTrip(checklistId, initialIdx)` registers the
-//      active trip in the Zustand store so useCarDetection can see it.
+//   1. The user opens this screen (from HomeScreen, the resume banner, or a
+//      push notification).
+//   2. On mount, an ActiveRun is created in the store (if one doesn't already
+//      exist) so useCarDetection can see the trip and the Home banner can show
+//      it. The run holds stopIndex + per-stop checked items.
 //   3. When the user reconnects CarPlay mid-trip (e.g. at a rest stop),
 //      useCarDetection shows an Alert asking "Arrived at next stop?". If the
-//      user taps Continue, `advanceMultiStopStop()` increments `stopIndex` in
-//      the store. This screen's useEffect detects the change and resets `checked`
-//      for the new stop.
+//      user taps Continue, `advanceActiveRunStop()` bumps the run's stopIndex
+//      in the store; this screen, subscribed to `activeRuns`, re-renders onto
+//      the new stop automatically.
 //   4. The user can also advance manually by tapping "Continue to next stop".
-//   5. On the last stop, the button becomes "Complete trip", which logs the run
-//      and pops the screen.
+//   5. On the last stop, the button becomes "Complete trip", which writes a
+//      TripLog, clears the run, and pops the screen.
 //
-// STORE vs LOCAL STATE
-//   `stopIndex` — lives in the Zustand store so CarPlay events can advance it
-//   from outside this component (via useCarDetection).
-//   `checked` — local component state; transient UI, not persisted. Reset every
-//   time `stopIndex` changes (detected via the second useEffect).
+// SINGLE SOURCE OF TRUTH (the ActiveRun)
+//   This screen keeps NO local checkbox state. Everything — the current stop
+//   index and which items are checked on each stop — lives in the persisted
+//   ActiveRun. Every tap calls `saveActiveRun`, so progress is auto-saved and
+//   surviving back-navigation, app restarts, and external CarPlay advances all
+//   come for free. `stopChecked` is keyed by stop index, so undo/redo across
+//   stops never loses earlier checkmarks.
 //
 // NAVIGATION
 // Reached from:
-//   HomeScreen (tap a multi-stop checklist row)
+//   HomeScreen (tap a multi-stop checklist row, or the resume banner)
 //   App.tsx notification listener (notification with `isMultiStop: true`)
 // Params: `{ checklistId: string }`.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -44,7 +48,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../store/useAppStore';
 import { theme } from '../theme';
-import { RootStackParamList, Stop } from '../types';
+import { RootStackParamList, Stop, TripLogItem, ActiveRun } from '../types';
 
 type Route = RouteProp<RootStackParamList, 'MultiStop'>;
 
@@ -54,67 +58,66 @@ export function MultiStopScreen() {
   const {
     checklists,
     addTripLog,
-    activeMultiStopTrip,
-    startMultiStopTrip,
-    advanceMultiStopStop,
-    rewindMultiStopStop,
-    endMultiStopTrip,
+    settings,
+    activeRuns,
+    saveActiveRun,
+    clearActiveRun,
   } = useAppStore();
 
   const checklist = checklists.find((c) => c.id === params.checklistId);
 
-  // Compute the correct starting stop index before the store is initialised.
-  // Without this, the first render would always show stop 0 briefly before
-  // the store effect runs — a visible flash.
-  // We use the checklist's own `status === 'current'` marker as the ground truth.
+  // Where a brand-new run should start, before any ActiveRun exists. We use the
+  // checklist's own `status === 'current'` marker as the ground truth.
   const effectiveInitialIdx = Math.max(
     0,
     checklist?.stops.findIndex((s) => s.status === 'current') ?? 0
   );
 
-  // Read stopIndex from the store so external CarPlay events (advanceMultiStopStop
-  // called by useCarDetection) can update it without the user touching anything.
-  // Fall back to `effectiveInitialIdx` if no active trip is registered yet.
-  const stopIndex =
-    activeMultiStopTrip?.checklistId === params.checklistId
-      ? activeMultiStopTrip.stopIndex
-      : effectiveInitialIdx;
+  // The persisted in-progress run is the single source of truth for this
+  // screen. Reading it from the store means external CarPlay events
+  // (advanceActiveRunStop, called by useCarDetection) update the screen
+  // automatically, and back-navigation never loses progress.
+  const run = activeRuns.find(
+    (r) => r.checklistId === params.checklistId && r.isMultiStop
+  );
 
-  // `checked` is local state — transient UI, not persisted. Initialised with
-  // whatever items the initial stop already had pre-checked (from checklist data).
-  const [checked, setChecked] = useState<Record<string, boolean>>(() => {
-    const stop = checklist?.stops[effectiveInitialIdx];
-    const init: Record<string, boolean> = {};
-    stop?.checkedItems.forEach((id) => { init[id] = true; });
-    return init;
-  });
+  // Derive everything the UI needs from the run, with safe fallbacks for the
+  // very first render (before the mount effect has created the run).
+  const stopIndex     = run?.stopIndex ?? effectiveInitialIdx;
+  const stopChecked   = run?.stopChecked ?? {};
+  const stopCheckedAt = run?.stopCheckedAt ?? {};
+  // Checked item IDs for the stop currently on screen, as a Set for O(1) `.has`.
+  const checkedSet = new Set<string>(stopChecked[stopIndex] ?? []);
 
-  // Register this as the active multi-stop trip when the screen mounts.
-  // The cleanup fn calls endMultiStopTrip() on unmount (back nav or completion)
-  // so useCarDetection no longer sees an active trip.
+  // Builds a fresh run object — seeds the mount effect and serves as a fallback
+  // base when mutating before the store has round-tripped.
+  function makeRun(): ActiveRun {
+    const now = new Date().toISOString();
+    return {
+      checklistId: params.checklistId,
+      isMultiStop: true,
+      startedAt: now,
+      updatedAt: now,
+      // Regular-trip fields are unused for a multi-stop run.
+      phase: 'start',
+      startDone: false,
+      checked: {},
+      checkedAt: {},
+      stopIndex: effectiveInitialIdx,
+      stopChecked: {},
+      stopCheckedAt: {},
+    };
+  }
+
+  // Register the run on mount so a CarPlay reconnect can advance it even before
+  // the user checks anything. We deliberately do NOT clear it on unmount (unlike
+  // the old behaviour) — progress must survive back-navigation. The run is
+  // cleared only on trip completion or via the Home "discard" action.
   useEffect(() => {
     if (!checklist) return;
-    startMultiStopTrip(params.checklistId, effectiveInitialIdx);
-    return () => {
-      endMultiStopTrip();
-    };
-  }, []); // intentionally empty deps — this effect is purely a lifecycle registration
-
-  // `useRef` lets us know whether this is the first render so we can skip the
-  // initial effect run (the useState initializer already seeded `checked`).
-  const isFirstRender = useRef(true);
-  useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-    // `stopIndex` changed externally (CarPlay advance) or via the manual button.
-    // Seed `checked` with the new stop's pre-checked items.
-    const stop = checklist?.stops[stopIndex];
-    const init: Record<string, boolean> = {};
-    stop?.checkedItems.forEach((id) => { init[id] = true; });
-    setChecked(init);
-  }, [stopIndex]); // `checklist` omitted intentionally — it's stable from the store
+    if (!run) saveActiveRun(makeRun());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!checklist) {
     return (
@@ -130,32 +133,93 @@ export function MultiStopScreen() {
   // Progress bar percentage: number of *completed* stops / total stops.
   const pct = stops.length > 0 ? Math.round((stopIndex / stops.length) * 100) : 0;
 
+  // Toggle one item in the CURRENT stop and persist immediately so progress is
+  // never lost. Per-stop checked IDs are stored keyed by stop index.
   function toggle(id: string) {
-    setChecked((prev) => ({ ...prev, [id]: !prev[id] }));
+    const base = run ?? makeRun();
+    const cur = new Set<string>(base.stopChecked[stopIndex] ?? []);
+    const at = { ...(base.stopCheckedAt[stopIndex] ?? {}) };
+    if (cur.has(id)) {
+      cur.delete(id);
+      delete at[id];
+    } else {
+      cur.add(id);
+      at[id] = new Date().toISOString();
+    }
+    saveActiveRun({
+      ...base,
+      updatedAt: new Date().toISOString(),
+      stopIndex,
+      stopChecked:   { ...base.stopChecked,   [stopIndex]: Array.from(cur) },
+      stopCheckedAt: { ...base.stopCheckedAt, [stopIndex]: at },
+    });
+  }
+
+  // Builds a section label for a stop, e.g. "Stop 2 — Rest stop — Gas & snacks".
+  function stopSectionLabel(idx: number) {
+    const name = stops[idx]?.name;
+    return name ? `Stop ${idx + 1} — ${name}` : `Stop ${idx + 1}`;
   }
 
   // Advance to the next stop, or complete the trip on the last stop.
   function advance() {
-    const checkedCount = currentStop.items.filter((it) => checked[it.id]).length;
+    if (!checklist) return; // narrows `checklist` for the rest of this closure
+    const base = run ?? makeRun();
+
     if (stopIndex < stops.length - 1) {
-      // More stops remain — increment the store; the useEffect above will
-      // pick up the change and reset `checked` for the new stop.
-      advanceMultiStopStop();
-    } else {
-      // Last stop — write the trip log, clean up the store, and go home.
-      addTripLog({
-        checklistId: checklist.id,
-        checklistName: checklist.name,
-        checkedCount,
-        totalCount: totalItems,
-        timestamp: new Date().toISOString(),
-        isComplete: true,
-      });
-      endMultiStopTrip();
-      Alert.alert('Trip complete!', 'All stops checked off.', [
-        { text: 'Done', onPress: () => navigation.goBack() },
-      ]);
+      // ── Mid-trip advance ────────────────────────────────────────────────
+      // The current stop's checked items are already persisted (toggle saves
+      // on every tap), so advancing is just a stopIndex bump. The screen
+      // re-derives the next stop's checkmarks from the run automatically.
+      saveActiveRun({ ...base, stopIndex: stopIndex + 1, updatedAt: new Date().toISOString() });
+      return;
     }
+
+    // ── Trip completion ───────────────────────────────────────────────────
+    // Tally every stop straight from the run's per-stop checked data, so the
+    // log is correct regardless of how the user navigated between stops.
+    let totalChecked = 0;
+    const allItems: TripLogItem[] = [];
+    stops.forEach((stop, idx) => {
+      const ids = new Set<string>(base.stopChecked[idx] ?? []);
+      const at  = base.stopCheckedAt[idx] ?? {};
+      stop.items.forEach((item) => {
+        if (ids.has(item.id)) totalChecked++;
+        if (settings.isPro) {
+          allItems.push({
+            id: item.id,
+            label: item.label,
+            checkedAt: at[item.id],
+            section: stopSectionLabel(idx),
+          });
+        }
+      });
+    });
+
+    addTripLog({
+      checklistId: checklist.id,
+      checklistName: checklist.name,
+      checkedCount: totalChecked,
+      totalCount: totalItems,
+      timestamp: new Date().toISOString(),
+      isComplete: totalChecked === totalItems,
+      items: settings.isPro ? allItems : undefined,
+    });
+
+    // The trip is finished — clear its run so it leaves the Home banner and the
+    // next open starts fresh at the first stop.
+    clearActiveRun(checklist.id);
+    Alert.alert('Trip complete!', 'All stops checked off.', [
+      { text: 'Done', onPress: () => navigation.goBack() },
+    ]);
+  }
+
+  // Step back to the previous stop. Because per-stop checked data is keyed by
+  // index, the previous stop's checkmarks reappear automatically.
+  function rewind() {
+    if (stopIndex <= 0) return;
+    const base = run ?? makeRun();
+    saveActiveRun({ ...base, stopIndex: stopIndex - 1, updatedAt: new Date().toISOString() });
   }
 
   // ── Badge helpers ──────────────────────────────────────────────────────────
@@ -264,12 +328,12 @@ export function MultiStopScreen() {
                 activeOpacity={0.7}
               >
                 {/* Purple checkbox fill for multi-stop (vs green in ChecklistRunScreen) */}
-                <View style={[s.checkbox, checked[item.id] && s.checkboxChecked]}>
-                  {checked[item.id] && (
+                <View style={[s.checkbox, checkedSet.has(item.id) && s.checkboxChecked]}>
+                  {checkedSet.has(item.id) && (
                     <Ionicons name="checkmark" size={13} color="#fff" />
                   )}
                 </View>
-                <Text style={[s.checkLabel, checked[item.id] && s.checkLabelDone]}>
+                <Text style={[s.checkLabel, checkedSet.has(item.id) && s.checkLabelDone]}>
                   {item.label}
                 </Text>
               </TouchableOpacity>
@@ -291,10 +355,10 @@ export function MultiStopScreen() {
         </TouchableOpacity>
 
         {/* Undo button — only available after the first advance so there's
-            something to roll back. The useEffect on stopIndex reseeds `checked`
-            with the previous stop's pre-checked items automatically. */}
+            something to roll back. Because per-stop checked data is keyed by
+            stop index, stepping back restores the previous stop's checkmarks. */}
         {stopIndex > 0 && (
-          <TouchableOpacity style={s.btnUndo} onPress={rewindMultiStopStop}>
+          <TouchableOpacity style={s.btnUndo} onPress={rewind}>
             <Ionicons name="arrow-undo-outline" size={15} color={theme.colors.textSecondary} />
             <Text style={s.btnUndoText}> Undo last advance</Text>
           </TouchableOpacity>

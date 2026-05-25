@@ -47,9 +47,10 @@ Notifications.setNotificationHandler({
 
 // Module-level pending-navigation target. Set when a notification tap arrives
 // before the NavigationContainer is ready; cleared after navigation fires.
-// `checklistId` is null when no default/autoDetect checklist exists — in that
-// case we navigate to HomeScreen instead of a specific checklist.
-type PendingNav = { checklistId: string | null; isMultiStop: boolean };
+// `checklistId` is null → fall back to HomeScreen.
+// `tab` is set to 'end' by the car-disconnect notification so the screen opens
+// straight to arrival items; omitted for car-connect notifications.
+type PendingNav = { checklistId: string | null; isMultiStop: boolean; tab?: 'start' | 'end' };
 let pendingNotificationNav: PendingNav | null = null;
 
 function AppRoot() {
@@ -65,12 +66,15 @@ function AppRoot() {
       // Expo types `data` as `Record<string, unknown>` — cast to `any` to
       // access the custom fields without verbose type assertions.
       const data = response.notification.request.content.data as any;
-      if (data?.trigger !== 'car-connect') return; // not a checklist notification, ignore
+      const trigger = data?.trigger;
+      // Only handle our own notifications; ignore everything else.
+      if (trigger !== 'car-connect' && trigger !== 'car-disconnect') return;
 
       const target: PendingNav = {
-        // null when no default/autoDetect checklist was set at notification time.
         checklistId: data.checklistId ?? null,
         isMultiStop: !!data.isMultiStop,
+        // Disconnect notifications should open straight to the end-of-trip tab.
+        tab: trigger === 'car-disconnect' ? 'end' : undefined,
       };
 
       if (navigationRef.isReady()) {
@@ -92,10 +96,16 @@ function AppRoot() {
       navigationRef.navigate('Home', undefined);
       return;
     }
-    navigationRef.navigate(
-      target.isMultiStop ? 'MultiStop' : 'ChecklistRun',
-      { checklistId: target.checklistId }
-    );
+    if (target.isMultiStop) {
+      navigationRef.navigate('MultiStop', { checklistId: target.checklistId });
+    } else {
+      navigationRef.navigate('ChecklistRun', {
+        checklistId: target.checklistId,
+        // `tab` is only defined for car-disconnect notifications; omitting it
+        // leaves ChecklistRunScreen to default to 'start'.
+        tab: target.tab,
+      });
+    }
   }
 
   // Called by NavigationContainer.onReady once it has finished mounting.

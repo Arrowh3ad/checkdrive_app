@@ -1,9 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // screens/CarDetectionSetupScreen.tsx  —  One-time car-detection setup guide.
 //
-// This screen explains why the app can't auto-detect CarPlay (Apple restricts
-// the CarPlay SDK to approved categories) and walks the user through a
-// one-time Shortcuts/automation setup that makes it work.
+// This screen explains why the app can't auto-detect CarPlay / Android Auto
+// (Apple and Google restrict SDK access to approved categories) and walks the
+// user through a one-time automation setup for BOTH connect and disconnect.
 //
 // iOS — TWO-SHORTCUT METHOD (required for iOS 17+ / 18+)
 // ─────────────────────────────────────────────────────────
@@ -11,14 +11,42 @@
 // directly in the suggested-action picker — you see only "Open App",
 // "New Shortcut", "Run Shortcut", etc. The solution is to put the URL-opening
 // logic in a separate regular shortcut, then have the automation run that
-// shortcut. This indirection always works because:
-//   • Regular shortcuts always have the full action library available.
-//   • "Run Shortcut" is always available inside automations.
-// See useCarDetection.ts for the matching deep-link listener.
+// shortcut. This indirection always works because regular shortcuts have the
+// full action library available, and "Run Shortcut" is always available inside
+// automations.
 //
-// ANDROID
-// Three options of increasing complexity are described for Android, ranging
-// from Google Assistant Routines (zero-install) to Tasker (full automation).
+// Two shortcuts + two automations are needed:
+//   "Start CheckDrive" shortcut  → checkdrive://trigger
+//   "Stop CheckDrive" shortcut   → checkdrive://disconnect
+//   Automation: CarPlay Is Connected    → Run "Start CheckDrive"
+//   Automation: CarPlay Is Disconnected → Run "Stop CheckDrive"
+//
+// ANDROID — BLUETOOTH TRIGGER + SEND INTENT
+// ──────────────────────────────────────────
+// True Android Auto connection detection (androidx.car.app.connection.
+// CarConnection content provider) requires native Kotlin code inside the app
+// binary — it can't be set up by the user from outside. The practical
+// alternative for the managed Expo workflow is a user-side automation app
+// (Tasker or MacroDroid) that listens for a Bluetooth-connect/-disconnect
+// event from the car kit and fires a Send Intent.
+//
+// WHY SEND INTENT, NOT "BROWSE URL" / "OPEN WEBSITE"?
+// Those actions pass the URL to a browser; the browser may intercept custom
+// schemes or drop them silently. Send Intent fires android.intent.action.VIEW
+// directly — Android resolves it to the registered URL-scheme handler
+// (CheckDrive) without any browser involvement.
+//
+// WHY NOT GOOGLE ASSISTANT ROUTINES?
+// Routines don't support arbitrary URL scheme launching. The "start/stop
+// driving" triggers also require Android Auto to be active, not just
+// Bluetooth. Routines are also being deprecated in favour of Gemini (2026).
+//
+// TEST BUTTONS
+// `Linking.openURL('checkdrive://trigger')` does NOT work for testing on iOS —
+// iOS won't route an app's own URL scheme back to itself when it's already open.
+// Instead the buttons call `simulateVehicleConnect` / `simulateVehicleDisconnect`
+// directly (exported from useCarDetection.ts), which run the same logic without
+// going through the URL scheme.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState } from 'react';
@@ -28,23 +56,19 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Linking,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme';
+import { simulateVehicleConnect, simulateVehicleDisconnect } from '../hooks/useCarDetection';
 
 // ── Step data ─────────────────────────────────────────────────────────────────
-// Typed inline by TypeScript inference — each object must have `n`, `title`,
-// and `detail` string fields; the compiler will surface any missing fields.
 
-// iOS 17+/18+ requires a two-shortcut approach because CarPlay automations
-// limit the directly-available actions. We first create a standalone shortcut
-// ("Start CheckDrive") that opens the deep link, then create a CarPlay
-// automation that runs that shortcut.
-const IOS_STEPS = [
+// iOS connect — two-shortcut method (steps 1–4: create the shortcut,
+// steps 5–7: create the automation that runs it).
+const IOS_CONNECT_STEPS = [
   {
     n: '1',
     title: 'Open Shortcuts → tap "+" to create a new shortcut',
@@ -89,24 +113,106 @@ const IOS_STEPS = [
   },
 ];
 
-const ANDROID_STEPS = [
+// iOS disconnect — same two-shortcut pattern but with the disconnect URL
+// and the "Is Disconnected" trigger. Kept shorter since the user already
+// understands the pattern from the connect setup above.
+const IOS_DISCONNECT_STEPS = [
   {
     n: '1',
-    title: 'Option A — Google Assistant Routine',
+    title: 'Open Shortcuts → tap "+" to create another new shortcut',
     detail:
-      'Open Google Assistant settings → Routines → "+ New" → Starter: "When I start driving" → Action: Open app or run shortcut to checkdrive://trigger.',
+      'Same as before — go to "My Shortcuts" tab, tap "+". This shortcut will send the disconnect signal.',
   },
   {
     n: '2',
-    title: 'Option B — MacroDroid or Tasker',
+    title: 'Add "URL" action → type checkdrive://disconnect → add "Open URLs"',
     detail:
-      'Create a profile: Trigger = "Bluetooth device connects" (your car\'s head unit) → Action = "Launch URL: checkdrive://trigger".',
+      'Same two-action pattern: URL action with checkdrive://disconnect, then Open URLs. Name the shortcut "Stop CheckDrive" and tap Done.',
   },
   {
     n: '3',
-    title: 'Option C — Android Auto (Pro builds)',
+    title: 'Automation tab → "+" → New Automation → CarPlay → Is Disconnected',
     detail:
-      'A bare-workflow build of this app can use UiModeManager.getCurrentModeType() to detect UI_MODE_TYPE_CAR=3 natively, without any third-party automation app.',
+      'Same flow as the connect automation, but choose "Is Disconnected" as the CarPlay trigger instead of "Is Connected".',
+  },
+  {
+    n: '4',
+    title: 'Add Action → "Run Shortcut" → select "Stop CheckDrive" → turn off "Ask Before Running" → Done',
+    detail:
+      'CheckDrive will now send an arrival reminder notification whenever CarPlay unplugs, so you don\'t forget your end-of-trip checklist.',
+  },
+];
+
+// Android connect — Tasker and MacroDroid using a Bluetooth-connect trigger
+// and a Send Intent action. Step 1 covers one-time permissions that must be
+// granted before either automation app will fire reliably in the background.
+const ANDROID_CONNECT_STEPS = [
+  {
+    n: '1',
+    title: 'Grant permissions to your automation app (one-time setup)',
+    detail:
+      'Without these two settings, the trigger silently fails when the screen is off.\n\n' +
+      '① Draw Over Other Apps — Settings → Apps → [Tasker or MacroDroid] → ' +
+      'Advanced → Display over other apps → Allow.\n\n' +
+      '② Unrestricted battery — Settings → Apps → [app] → Battery → Unrestricted ' +
+      '(look for "Optimize battery usage" if you don\'t see this directly).\n\n' +
+      'Manufacturer extras: on Samsung also enable Auto-start in the same battery menu. ' +
+      'On Xiaomi go to Security → Autostart. On OnePlus check Battery Optimization in ' +
+      'the system Battery settings.',
+  },
+  {
+    n: '2',
+    title: 'Option A — Tasker: New Profile → Event → Net → BT Connected',
+    detail:
+      'Tap + to create a new profile → Event → Net → BT Connected. Tap the "Device" ' +
+      'field and choose your car\'s Bluetooth name to avoid triggering on other devices ' +
+      '(optional but recommended).\n\n' +
+      'Tap the back arrow → New Task → tap + to add an action → System → Send Intent. ' +
+      'Fill in these three fields and leave everything else blank:\n' +
+      '  Action:  android.intent.action.VIEW\n' +
+      '  Data:    checkdrive://trigger\n' +
+      '  Target:  Activity',
+  },
+  {
+    n: '3',
+    title: 'Option B — MacroDroid: + Macro → Triggers → Connectivity → Bluetooth Device Connects',
+    detail:
+      'Tap + Macro → under Triggers tap + → Connectivity → Bluetooth Device Connects. ' +
+      'Select your car\'s Bluetooth device from the list.\n\n' +
+      'Under Actions tap + → Connectivity → Send Intent. Fill in:\n' +
+      '  Action:   android.intent.action.VIEW\n' +
+      '  Data URI: checkdrive://trigger\n' +
+      '  Target:   Activity\n\n' +
+      'Do NOT use "Open Website" or "HTTP GET" — those route through a browser and ' +
+      'cannot open custom URL schemes like checkdrive://.',
+  },
+];
+
+// Android disconnect — same Send Intent approach, Bluetooth Disconnected trigger.
+// Permissions are already covered by step 1 of the connect section above.
+const ANDROID_DISCONNECT_STEPS = [
+  {
+    n: '1',
+    title: 'Option A — Tasker: New Profile → Event → Net → BT Disconnected',
+    detail:
+      'Same flow as the connect profile — tap + → Event → Net — but this time choose ' +
+      '"BT Disconnected". Set Device to your car\'s Bluetooth name.\n\n' +
+      'Link a new Task with one Send Intent action:\n' +
+      '  Action:  android.intent.action.VIEW\n' +
+      '  Data:    checkdrive://disconnect\n' +
+      '  Target:  Activity\n\n' +
+      'This fires the arrival-reminder notification so you don\'t forget end-of-trip items.',
+  },
+  {
+    n: '2',
+    title: 'Option B — MacroDroid: + Macro → Triggers → Connectivity → Bluetooth Device Disconnects',
+    detail:
+      'Same as the connect macro but choose "Bluetooth Device Disconnects" as the trigger. ' +
+      'Select your car\'s Bluetooth device.\n\n' +
+      'Under Actions add a Send Intent:\n' +
+      '  Action:   android.intent.action.VIEW\n' +
+      '  Data URI: checkdrive://disconnect\n' +
+      '  Target:   Activity',
   },
 ];
 
@@ -120,18 +226,9 @@ export function CarDetectionSetupScreen() {
     Platform.OS === 'android' ? 'android' : 'ios'
   );
 
-  function testDeepLink() {
-    // Opening our own URL scheme re-triggers the `Linking.addEventListener('url')`
-    // handler in useCarDetection, simulating a real CarPlay connect event.
-    // On a simulator there's no background app to receive the URL, so we swallow
-    // the error rather than showing a confusing alert.
-    Linking.openURL('checkdrive://trigger').catch(() => {
-      // Expected on iOS Simulator — not a real error
-    });
-  }
-
-  // Derived value — no separate state needed.
-  const steps = tab === 'ios' ? IOS_STEPS : ANDROID_STEPS;
+  // Connect steps and disconnect steps both swap when the tab changes.
+  const connectSteps    = tab === 'ios' ? IOS_CONNECT_STEPS    : ANDROID_CONNECT_STEPS;
+  const disconnectSteps = tab === 'ios' ? IOS_DISCONNECT_STEPS : ANDROID_DISCONNECT_STEPS;
 
   return (
     <SafeAreaView style={s.safe}>
@@ -152,7 +249,7 @@ export function CarDetectionSetupScreen() {
             Apple restricts CarPlay SDK access to approved app categories (navigation, audio,
             etc.). Android Auto has similar restrictions for background apps. The safest
             cross-platform solution is to wire up a one-time automation using your OS's built-in
-            tools — it takes about 3 minutes and works reliably.
+            tools — it takes about 5 minutes and works reliably.
           </Text>
         </View>
 
@@ -184,6 +281,40 @@ export function CarDetectionSetupScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Android-only info callout — explains why Bluetooth is used as a proxy
+            rather than direct Android Auto detection, so users understand the
+            trade-off before following the steps. */}
+        {tab === 'android' && (
+          <View style={s.noteCard}>
+            <Ionicons name="information-circle" size={16} color={theme.colors.primary} />
+            <Text style={s.noteText}>
+              Android Auto detection requires native app code that isn't available in the
+              current build. These steps use your car's Bluetooth connection as a reliable
+              proxy — they fire for any Bluetooth car kit, not just Android Auto, which
+              means they work even if your phone is plugged in via USB.
+            </Text>
+          </View>
+        )}
+
+        {/* Android-only prerequisites warning — shown before both sections.
+            Covers the two most common reasons automation silently fails:
+            missing "Draw Over Other Apps" and aggressive battery management. */}
+        {tab === 'android' && (
+          <View style={s.warnCard}>
+            <Ionicons name="warning-outline" size={16} color={theme.colors.warning} />
+            <Text style={s.warnText}>
+              <Text style={{ fontWeight: '600' }}>Standalone build required. </Text>
+              This only works with the app installed from Google Play or an EAS Build —
+              not through Expo Go.{'\n\n'}
+              <Text style={{ fontWeight: '600' }}>Grant permissions first </Text>
+              (see Step 1 below) or triggers will silently fail when the screen is off.
+            </Text>
+          </View>
+        )}
+
+        {/* ── Connect automation section ───────────────────────────────────── */}
+        <Text style={s.sectionLabel}>Connect automation</Text>
+
         {/* iOS-only note about the two-shortcut method */}
         {tab === 'ios' && (
           <View style={s.noteCard}>
@@ -196,12 +327,12 @@ export function CarDetectionSetupScreen() {
           </View>
         )}
 
-        {/* Step-by-step instructions — `steps` changes automatically when tab changes */}
+        {/* Connect step-by-step instructions */}
         <View style={s.card}>
-          {steps.map((step, idx) => (
+          {connectSteps.map((step, idx) => (
             <View
               key={step.n}
-              style={[s.stepRow, idx < steps.length - 1 && s.stepRowBorder]}
+              style={[s.stepRow, idx < connectSteps.length - 1 && s.stepRowBorder]}
             >
               <View style={s.stepNum}>
                 <Text style={s.stepNumText}>{step.n}</Text>
@@ -214,20 +345,82 @@ export function CarDetectionSetupScreen() {
           ))}
         </View>
 
-        {/* Copyable deep-link URL — `selectable` makes long-press-to-copy work */}
+        {/* Copyable connect URL — `selectable` makes long-press-to-copy work */}
         <View style={s.urlCard}>
-          <Text style={s.urlLabel}>Deep-link URL</Text>
+          <Text style={s.urlLabel}>Connect URL</Text>
           <View style={s.urlRow}>
             <Text style={s.urlText} selectable>checkdrive://trigger</Text>
           </View>
-          <Text style={s.urlHint}>Long-press to copy · Paste this into the URL action (step 2)</Text>
+          <Text style={s.urlHint}>Long-press to copy · Paste this into the URL action</Text>
         </View>
 
-        {/* Test button — fires the URL scheme so you can verify the setup works */}
-        <TouchableOpacity style={s.testBtn} onPress={testDeepLink}>
-          <Ionicons name="flash" size={15} color={theme.colors.textPrimary} />
-          <Text style={s.testBtnText}> Test deep link (simulates CarPlay connect)</Text>
-        </TouchableOpacity>
+        {/* ── Disconnect automation section ────────────────────────────────── */}
+        <Text style={s.sectionLabel}>Disconnect automation</Text>
+
+        {/* iOS-only note for disconnect */}
+        {tab === 'ios' && (
+          <View style={s.noteCard}>
+            <Ionicons name="information-circle" size={16} color={theme.colors.primary} />
+            <Text style={s.noteText}>
+              Same two-shortcut approach as above, but with "Is Disconnected" as the trigger
+              and checkdrive://disconnect as the URL. Without this, the arrival reminder
+              notification won't fire automatically when you unplug CarPlay.
+            </Text>
+          </View>
+        )}
+
+        {/* Android-only note for disconnect */}
+        {tab === 'android' && (
+          <View style={s.noteCard}>
+            <Ionicons name="information-circle" size={16} color={theme.colors.primary} />
+            <Text style={s.noteText}>
+              Permissions from Step 1 above also cover the disconnect automation — no extra
+              setup needed. Create this as a separate profile/macro from the connect one.
+            </Text>
+          </View>
+        )}
+
+        {/* Disconnect step-by-step instructions */}
+        <View style={s.card}>
+          {disconnectSteps.map((step, idx) => (
+            <View
+              key={step.n}
+              style={[s.stepRow, idx < disconnectSteps.length - 1 && s.stepRowBorder]}
+            >
+              <View style={s.stepNum}>
+                <Text style={s.stepNumText}>{step.n}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.stepTitle}>{step.title}</Text>
+                <Text style={s.stepDetail}>{step.detail}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        {/* Copyable disconnect URL */}
+        <View style={s.urlCard}>
+          <Text style={s.urlLabel}>Disconnect URL</Text>
+          <View style={s.urlRow}>
+            <Text style={s.urlText} selectable>checkdrive://disconnect</Text>
+          </View>
+          <Text style={s.urlHint}>Long-press to copy · Paste this into the URL action</Text>
+        </View>
+
+        {/* ── Test buttons ─────────────────────────────────────────────────── */}
+        {/* These call the exported simulator functions directly rather than
+            opening the URL scheme, because iOS won't route an app's own URL
+            scheme back to itself when it's already running in the foreground. */}
+        <View style={s.testBtnRow}>
+          <TouchableOpacity style={s.testBtn} onPress={() => simulateVehicleConnect()}>
+            <Ionicons name="flash" size={14} color={theme.colors.primary} />
+            <Text style={[s.testBtnText, { color: theme.colors.primary }]}> Test connect</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.testBtn} onPress={() => simulateVehicleDisconnect()}>
+            <Ionicons name="flash-off" size={14} color={theme.colors.textSecondary} />
+            <Text style={s.testBtnText}> Test disconnect</Text>
+          </TouchableOpacity>
+        </View>
 
       </ScrollView>
     </SafeAreaView>
@@ -241,6 +434,15 @@ const s = StyleSheet.create({
   backBtn: { padding: 4 },
   title: { flex: 1, fontSize: 18, fontWeight: '500', color: theme.colors.textPrimary },
 
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: theme.colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    paddingHorizontal: 2,
+  },
+
   card: {
     backgroundColor: theme.colors.bgPrimary,
     borderWidth: 0.5,
@@ -253,7 +455,21 @@ const s = StyleSheet.create({
   infoTitle: { fontSize: 14, fontWeight: '500', color: theme.colors.textPrimary, marginBottom: 8 },
   infoText: { fontSize: 13, color: theme.colors.textSecondary, lineHeight: 19 },
 
-  // Info callout that only appears on the iOS tab
+  // Amber warning callout — Android prerequisites, shown once before connect steps
+  warnCard: {
+    backgroundColor: theme.colors.warningLight,
+    borderWidth: 0.5,
+    borderColor: '#D4A24C',
+    borderRadius: theme.radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'flex-start',
+  },
+  warnText: { flex: 1, fontSize: 13, color: theme.colors.warning, lineHeight: 18 },
+
+  // Green info callout that appears above each section on the iOS tab
   noteCard: {
     backgroundColor: theme.colors.primaryLight,
     borderWidth: 0.5,
@@ -338,7 +554,10 @@ const s = StyleSheet.create({
   },
   urlHint: { fontSize: 12, color: theme.colors.textTertiary },
 
+  // Side-by-side test buttons at the bottom of the screen
+  testBtnRow: { flexDirection: 'row', gap: 8 },
   testBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -348,5 +567,5 @@ const s = StyleSheet.create({
     borderColor: theme.colors.borderSecondary,
     backgroundColor: theme.colors.bgPrimary,
   },
-  testBtnText: { fontSize: 14, fontWeight: '500', color: theme.colors.textPrimary },
+  testBtnText: { fontSize: 13, fontWeight: '500', color: theme.colors.textSecondary },
 });

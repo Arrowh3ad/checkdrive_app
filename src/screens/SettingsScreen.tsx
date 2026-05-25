@@ -207,7 +207,7 @@ function ToggleRow({
       <Switch
         value={value}
         onValueChange={onToggle}
-        // `trackColor` sets the off-state and on-state track colours separately.
+        // `trackColor` sets the off-state and on-state track colors separately.
         trackColor={{ false: theme.colors.borderSecondary, true: theme.colors.primary }}
         thumbColor="#fff"
       />
