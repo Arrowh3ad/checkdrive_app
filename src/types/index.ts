@@ -120,6 +120,16 @@ export type ActiveRun = {
   stopCheckedAt: Record<number, Record<string, string>>;
 };
 
+// The signed-in user, mirrored from Firebase Auth into the Zustand store by
+// useAuthSync. `null` means "guest" — the app is fully usable in this state;
+// an account is only required to start a Pro subscription. NOT persisted by
+// Zustand: Firebase owns session persistence (AsyncStorage), and this is
+// re-hydrated by the auth listener on launch.
+export type AuthUser = {
+  uid: string;
+  email: string | null;
+};
+
 // All persisted user preferences. Lives in `settings` inside the Zustand store.
 export type Settings = {
   pushNotifications: boolean;
@@ -150,4 +160,10 @@ export type RootStackParamList = {
   Pro: undefined;
   CarDetectionSetup: undefined;
   TripHistory: undefined; // Pro: full history with timestamps + multi-select delete
+  // Auth screens. Reached when a guest tries to go Pro, or from Settings.
+  // SignIn ↔ SignUp swap via navigation.replace (they're alternatives, not a
+  // stack), so a single goBack() after success returns to the caller.
+  SignIn: undefined;
+  SignUp: undefined;
+  ForgotPassword: undefined;
 };

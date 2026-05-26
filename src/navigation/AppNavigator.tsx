@@ -42,6 +42,9 @@ import { SettingsScreen } from '../screens/SettingsScreen';
 import { ProScreen } from '../screens/ProScreen';
 import { CarDetectionSetupScreen } from '../screens/CarDetectionSetupScreen';
 import { TripHistoryScreen } from '../screens/TripHistoryScreen';
+import { SignInScreen } from '../screens/auth/SignInScreen';
+import { SignUpScreen } from '../screens/auth/SignUpScreen';
+import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen';
 
 // The generic parameter `<RootStackParamList>` makes `navigationRef.navigate()`
 // type-safe: TypeScript will error if you pass a screen name that doesn't exist
@@ -98,6 +101,11 @@ export function AppNavigator({ onReady }: { onReady?: () => void }) {
         <Stack.Screen name="Pro" component={ProScreen} />
         <Stack.Screen name="CarDetectionSetup" component={CarDetectionSetupScreen} />
         <Stack.Screen name="TripHistory" component={TripHistoryScreen} />
+        {/* Auth screens. SignIn ↔ SignUp swap via navigation.replace so only
+            one ever sits above the caller; ForgotPassword pushes onto SignIn. */}
+        <Stack.Screen name="SignIn" component={SignInScreen} />
+        <Stack.Screen name="SignUp" component={SignUpScreen} />
+        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

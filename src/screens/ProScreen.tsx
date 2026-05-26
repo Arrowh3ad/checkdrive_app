@@ -57,11 +57,28 @@ const FEATURES = [
 
 export function ProScreen() {
   const navigation = useNavigation();
-  // We only need `updateSettings` here — no need to read the full store.
-  const { updateSettings } = useAppStore();
+  // We need `user` to gate the subscribe flow behind sign-in. An account is
+  // required for Pro so the subscription stays tied to the user across
+  // devices, app reinstalls, and platform changes.
+  const { updateSettings, user } = useAppStore();
 
   function handleSubscribe() {
-    // In production: call RevenueCat / Google Play Billing here.
+    // GUEST PATH: prompt to sign in before any payment flow. The auth screens
+    // pop back here on success; the user can then tap subscribe again. We
+    // don't auto-trigger the purchase post-login to avoid surprises.
+    if (!user) {
+      Alert.alert(
+        'Sign in to continue',
+        'Pro subscriptions are tied to your account so they follow you across devices. Create a free account (or sign in) to subscribe.',
+        [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Sign in', onPress: () => (navigation as any).navigate('SignIn') },
+        ]
+      );
+      return;
+    }
+
+    // SIGNED-IN PATH: in production this calls RevenueCat / Google Play Billing.
     Alert.alert(
       'Subscribe to Pro',
       'In production this opens the App Store / Google Play in-app purchase flow via RevenueCat or similar.',

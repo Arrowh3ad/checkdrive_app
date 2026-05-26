@@ -25,7 +25,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Checklist, TripLog, Settings, StopStatus, ActiveRun } from '../types';
+import { Checklist, TripLog, Settings, StopStatus, ActiveRun, AuthUser } from '../types';
 import { generateId } from '../utils/ids';
 
 // ── Demo / seed data ──────────────────────────────────────────────────────────
@@ -183,6 +183,12 @@ interface AppStore {
   settings: Settings;
   connectedToVehicle: boolean;
 
+  // The signed-in user, or null for a guest. Mirrored from Firebase Auth by
+  // useAuthSync. NOT persisted here — Firebase owns session persistence and
+  // re-hydrates this on launch. The app is fully usable while null; an account
+  // is only required to start a Pro subscription.
+  user: AuthUser | null;
+
   // In-progress checklist runs (both regular and multi-stop). Persisted so the
   // user can navigate away and resume later, and so the Home screen can show a
   // "continue where you left off" banner. At most one entry per checklistId.
@@ -205,6 +211,10 @@ interface AppStore {
   deleteTripLogs: (ids: string[]) => void;
   updateSettings: (data: Partial<Settings>) => void;
   setConnectedToVehicle: (connected: boolean) => void;
+
+  // Mirrors the current Firebase auth state into the store. Called by
+  // useAuthSync's onAuthStateChanged listener; pass null on sign-out.
+  setUser: (user: AuthUser | null) => void;
 
   // Sets or clears the default checklist (Pro feature). Pass null to clear.
   setDefaultChecklist: (id: string | null) => void;
@@ -249,6 +259,8 @@ export const useAppStore = create<AppStore>()(
       },
       connectedToVehicle: true,
       activeRuns: [],
+      // Starts as guest; useAuthSync fills this in once Firebase reports state.
+      user: null,
 
       // ── Checklist actions ────────────────────────────────────────────────
       addChecklist: (data) =>
@@ -337,6 +349,8 @@ export const useAppStore = create<AppStore>()(
         set((state) => ({ settings: { ...state.settings, ...data } })),
 
       setConnectedToVehicle: (connected) => set({ connectedToVehicle: connected }),
+
+      setUser: (user) => set({ user }),
 
       setDefaultChecklist: (id) =>
         set((state) => ({

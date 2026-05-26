@@ -29,14 +29,38 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAppStore } from '../store/useAppStore';
+import { signOutUser } from '../services/firebase';
 import { theme } from '../theme';
 
 export function SettingsScreen() {
   const navigation = useNavigation();
-  const { settings, updateSettings, checklists, downgradeFromPro } = useAppStore();
+  const { settings, updateSettings, checklists, downgradeFromPro, user } = useAppStore();
   const usedSlots = checklists.length;
   // Pro users see "∞"; free users see the numeric cap.
   const maxSlots = settings.isPro ? '∞' : '3';
+
+  // Derive the avatar text. Use the first two chars of the email local-part,
+  // uppercased. Guests get a generic person glyph instead of letters.
+  const initials = user?.email
+    ? user.email.split('@')[0].slice(0, 2).toUpperCase()
+    : null;
+
+  function handleSignOut() {
+    Alert.alert(
+      'Sign out?',
+      'You can sign back in any time. Your local checklists stay on this device.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign out',
+          style: 'destructive',
+          // signOutUser triggers the auth listener which clears `user` in the
+          // store; the account card re-renders into its guest state.
+          onPress: () => { void signOutUser(); },
+        },
+      ]
+    );
+  }
 
   function handleManageSubscription() {
     // In production this would open the OS's subscription management flow
@@ -75,15 +99,22 @@ export function SettingsScreen() {
         </View>
 
         {/* ── Account card ─────────────────────────────────────────────────── */}
+        {/* Two states: signed in (show email + sign-out row) vs guest (show a
+            "Sign in" CTA). The Sign In screen is also where new users sign up. */}
         <View style={s.card}>
           <Text style={s.cardLabel}>Account</Text>
           <View style={s.accountRow}>
-            {/* Initials avatar — in production this would be a real profile photo */}
             <View style={s.avatar}>
-              <Text style={s.avatarText}>JD</Text>
+              {initials ? (
+                <Text style={s.avatarText}>{initials}</Text>
+              ) : (
+                <Ionicons name="person-outline" size={20} color={theme.colors.primaryDeep} />
+              )}
             </View>
-            <View>
-              <Text style={s.accountName}>John Doe</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={s.accountName} numberOfLines={1}>
+                {user?.email ?? 'Guest'}
+              </Text>
               <Text style={s.accountMeta}>
                 {settings.isPro
                   ? 'Pro plan · Unlimited checklists'
@@ -91,6 +122,38 @@ export function SettingsScreen() {
               </Text>
             </View>
           </View>
+
+          {/* Guest CTA: prompts sign-in. No account is required to use the app —
+              this is just where users go to enable Pro / cross-device sync. */}
+          {!user && (
+            <TouchableOpacity
+              style={s.accountCta}
+              onPress={() => (navigation as any).navigate('SignIn')}
+            >
+              <Ionicons name="log-in-outline" size={16} color={theme.colors.primary} />
+              <Text style={s.accountCtaText}>Sign in or create account</Text>
+              <Ionicons
+                name="chevron-forward"
+                size={14}
+                color={theme.colors.textTertiary}
+                style={{ marginLeft: 'auto' }}
+              />
+            </TouchableOpacity>
+          )}
+
+          {/* Signed-in: offer sign-out. Destructive-style alert confirms. */}
+          {user && (
+            <TouchableOpacity style={s.accountCta} onPress={handleSignOut}>
+              <Ionicons name="log-out-outline" size={16} color={theme.colors.danger} />
+              <Text style={[s.accountCtaText, { color: theme.colors.danger }]}>Sign out</Text>
+              <Ionicons
+                name="chevron-forward"
+                size={14}
+                color={theme.colors.textTertiary}
+                style={{ marginLeft: 'auto' }}
+              />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* ── Pro upgrade banner (free users only) ─────────────────────────── */}
@@ -239,6 +302,17 @@ const s = StyleSheet.create({
   divider: { height: 0.5, backgroundColor: theme.colors.borderTertiary },
 
   accountRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
+  accountCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    marginTop: 4,
+    borderTopWidth: 0.5,
+    borderTopColor: theme.colors.borderTertiary,
+  },
+  accountCtaText: { fontSize: 14, fontWeight: '500', color: theme.colors.primary },
   avatar: {
     width: 40,
     height: 40,
