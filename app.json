@@ -60,7 +60,8 @@
         }
       ],
       "expo-background-fetch",
-      "expo-task-manager"
+      "expo-task-manager",
+      "expo-font"
     ],
     "extra": {
       "eas": {
