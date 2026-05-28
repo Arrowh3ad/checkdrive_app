@@ -11,7 +11,7 @@
 // sits above the caller and a single goBack() is always correct.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -36,6 +36,15 @@ export function SignInScreen() {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // See SignUpScreen for the rationale: Android resizes but doesn't scroll
+  // the focused field into view, so we scroll to the bottom on focus.
+  const scrollRef = useRef<ScrollView>(null);
+  function scrollToBottom() {
+    setTimeout(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+  }
 
   async function handleSignIn() {
     // Cheap client-side checks so we don't bother the network with blanks.
@@ -63,6 +72,7 @@ export function SignInScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={s.scroll}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -111,6 +121,7 @@ export function SignInScreen() {
                 autoCapitalize="none"
                 autoComplete="password"
                 editable={!loading}
+                onFocus={scrollToBottom}
               />
               <TouchableOpacity onPress={() => setShowPw((v) => !v)} style={s.eyeBtn}>
                 <Ionicons

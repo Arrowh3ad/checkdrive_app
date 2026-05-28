@@ -288,10 +288,18 @@ export function CarDetectionSetupScreen() {
           <View style={s.noteCard}>
             <Ionicons name="information-circle" size={16} color={theme.colors.primary} />
             <Text style={s.noteText}>
-              Android Auto detection requires native app code that isn't available in the
-              current build. These steps use your car's Bluetooth connection as a reliable
-              proxy — they fire for any Bluetooth car kit, not just Android Auto, which
-              means they work even if your phone is plugged in via USB.
+              <Text style={{ fontWeight: '600' }}>You don't have to do any of this. </Text>
+              CheckDrive works perfectly without automation — just open the app yourself
+              when you get in the car. The steps below are only for hands-free auto-launch,
+              and they require installing a third-party automation app:{'\n\n'}
+              <Text style={{ fontWeight: '600' }}>• MacroDroid </Text>(free, has ads) —
+              easiest to set up.{'\n'}
+              <Text style={{ fontWeight: '600' }}>• Tasker </Text>(~$3.50, no ads) —
+              more powerful.{'\n\n'}
+              Why can't the app do this on its own? Android Auto and Bluetooth-event detection
+              require native Java/Kotlin code that's not available in the current build.
+              These automation apps act as a permitted intermediary — they listen for the
+              car's Bluetooth connection and tap a special URL that opens CheckDrive.
             </Text>
           </View>
         )}

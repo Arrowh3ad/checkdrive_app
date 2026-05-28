@@ -9,7 +9,7 @@
 // that — it only knows the one password the user submitted.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -35,6 +35,19 @@ export function SignUpScreen() {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Scroll ref + helper. On Android, `windowSoftInputMode=adjustResize` resizes
+  // the window when the keyboard opens but doesn't auto-scroll the focused
+  // field into view — so a TextInput near the bottom can end up hidden behind
+  // the keyboard. We scroll to the end (where confirm-password lives) when any
+  // field below the fold gets focused. The brief setTimeout lets the keyboard
+  // start its animation first so we measure against the post-resize layout.
+  const scrollRef = useRef<ScrollView>(null);
+  function scrollToBottom() {
+    setTimeout(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+  }
 
   async function handleSignUp() {
     // Client-side validation — Firebase will catch deeper issues server-side.
@@ -71,6 +84,7 @@ export function SignUpScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={s.scroll}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -116,6 +130,7 @@ export function SignUpScreen() {
                 autoCapitalize="none"
                 autoComplete="password-new"
                 editable={!loading}
+                onFocus={scrollToBottom}
               />
               <TouchableOpacity onPress={() => setShowPw((v) => !v)} style={s.eyeBtn}>
                 <Ionicons
@@ -137,6 +152,7 @@ export function SignUpScreen() {
               autoCapitalize="none"
               autoComplete="password-new"
               editable={!loading}
+              onFocus={scrollToBottom}
             />
 
             {error && (
