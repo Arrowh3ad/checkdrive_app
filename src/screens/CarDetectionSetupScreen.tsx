@@ -216,6 +216,43 @@ const ANDROID_DISCONNECT_STEPS = [
   },
 ];
 
+// ── Collapsible note ──────────────────────────────────────────────────────────
+// Small inline component used to tuck long explanations behind a tap-to-expand
+// header, so the screen isn't a wall of text by default. Collapsed by default
+// to minimize visual noise; the user can open whichever one is relevant. Local
+// `expanded` state keeps each note independent.
+function Collapsible({
+  title,
+  defaultExpanded = false,
+  children,
+}: {
+  title: string;
+  defaultExpanded?: boolean;
+  children: React.ReactNode;
+}) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  return (
+    <View style={s.collapsibleCard}>
+      <TouchableOpacity
+        style={s.collapsibleHeader}
+        onPress={() => setExpanded((v) => !v)}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="information-circle" size={16} color={theme.colors.primaryDeep} />
+        <Text style={s.collapsibleTitle}>{title}</Text>
+        <Ionicons
+          name={expanded ? 'chevron-up' : 'chevron-down'}
+          size={18}
+          color={theme.colors.primaryDeep}
+        />
+      </TouchableOpacity>
+      {/* Body is rendered conditionally — the un-rendered state takes zero
+          vertical space, so the collapsed card is just the title row. */}
+      {expanded && <View style={s.collapsibleBody}>{children}</View>}
+    </View>
+  );
+}
+
 export function CarDetectionSetupScreen() {
   const navigation = useNavigation();
 
@@ -285,8 +322,7 @@ export function CarDetectionSetupScreen() {
             rather than direct Android Auto detection, so users understand the
             trade-off before following the steps. */}
         {tab === 'android' && (
-          <View style={s.noteCard}>
-            <Ionicons name="information-circle" size={16} color={theme.colors.primary} />
+          <Collapsible title="Do I need to install anything?">
             <Text style={s.noteText}>
               <Text style={{ fontWeight: '600' }}>You don't have to do any of this. </Text>
               CheckDrive works perfectly without automation — just open the app yourself
@@ -301,7 +337,7 @@ export function CarDetectionSetupScreen() {
               These automation apps act as a permitted intermediary — they listen for the
               car's Bluetooth connection and tap a special URL that opens CheckDrive.
             </Text>
-          </View>
+          </Collapsible>
         )}
 
         {/* Android-only prerequisites warning — shown before both sections.
@@ -325,14 +361,13 @@ export function CarDetectionSetupScreen() {
 
         {/* iOS-only note about the two-shortcut method */}
         {tab === 'ios' && (
-          <View style={s.noteCard}>
-            <Ionicons name="information-circle" size={16} color={theme.colors.primary} />
+          <Collapsible title="Why two shortcuts?">
             <Text style={s.noteText}>
               On iOS 17+ / 18, CarPlay automations don't show "Open URLs" directly. Steps 1–4
               create a standalone shortcut; steps 5–7 wire it to CarPlay. This works on all
               recent iOS versions.
             </Text>
-          </View>
+          </Collapsible>
         )}
 
         {/* Connect step-by-step instructions */}
@@ -490,6 +525,31 @@ const s = StyleSheet.create({
     alignItems: 'flex-start',
   },
   noteText: { flex: 1, fontSize: 13, color: theme.colors.primaryDeep, lineHeight: 18 },
+
+  // Collapsible variant of noteCard: same color treatment, column layout so a
+  // tappable header sits above an optional body. Default state is collapsed so
+  // the screen reads as a tidy list of titles; users expand only what they need.
+  collapsibleCard: {
+    backgroundColor: theme.colors.primaryLight,
+    borderWidth: 0.5,
+    borderColor: '#5DCAA5',
+    borderRadius: theme.radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  collapsibleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  collapsibleTitle: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.colors.primaryDeep,
+  },
+  // Padding only on top so the body sits a touch away from the header row.
+  collapsibleBody: { marginTop: 10 },
 
   tabs: {
     flexDirection: 'row',
