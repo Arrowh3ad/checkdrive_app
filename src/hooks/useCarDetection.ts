@@ -42,6 +42,7 @@ import * as TaskManager from 'expo-task-manager';
 import * as BackgroundFetch from 'expo-background-fetch';
 import { useAppStore } from '../store/useAppStore';
 import { sendTripStartNotification, sendTripEndNotification } from './useNotifications';
+import { navigationRef } from '../navigation/navigationRef';
 
 // A named constant for the background-fetch task so the same string is used in
 // both `defineTask` (module level) and `registerTaskAsync` (hook level).
@@ -96,14 +97,40 @@ export async function simulateVehicleConnect(): Promise<void> {
     return; // don't fall through to the notification path
   }
 
-  // NOTIFICATION FLOW
-  // Push a notification so the user can tap to open the checklist, even if
-  // they're not looking at the phone when CarPlay connects.
+  // Only embed/open a specific checklist when the user has explicitly chosen a
+  // default. Without a default we fall back to the notification path, whose tap
+  // lands on HomeScreen so the user can pick for themselves.
+  const defaultCl = checklists.find((cl) => cl.id === settings.defaultChecklistId);
+
+  // OPEN-ON-CONNECT OPTION (opt-in)
+  // When the user has turned on "Open checklist when car connects", open the
+  // app to the right place instead of only posting a notification:
+  //   • Pro + a default checklist set → jump straight into that checklist.
+  //   • Free tier (or Pro without a default) → land on Home, so they can pick.
+  // Jumping to a specific checklist is the Pro behavior because the default
+  // checklist itself is a Pro-only feature (see Settings.defaultChecklistId).
+  // The app is already foregrounded here — the checkdrive:// deep link brought
+  // it up — so the navigate lands immediately. We guard on `isReady()` for the
+  // cold-start race (deep link launches the app before the nav tree mounts);
+  // if it's not ready we fall through to the notification, which has its own
+  // cold-start handling in App.tsx.
+  if (settings.openChecklistOnConnect && navigationRef.isReady()) {
+    if (settings.isPro && defaultCl) {
+      if (defaultCl.isMultiStop) {
+        navigationRef.navigate('MultiStop', { checklistId: defaultCl.id });
+      } else {
+        navigationRef.navigate('ChecklistRun', { checklistId: defaultCl.id });
+      }
+    } else {
+      navigationRef.navigate('Home', undefined);
+    }
+    return; // opened the app directly — skip the notification
+  }
+
+  // NOTIFICATION FLOW (default)
+  // Post a notification so the user can tap to open the checklist when ready,
+  // rather than the app taking over the moment the car connects.
   if (settings.pushNotifications) {
-    // Only embed a specific checklist when the user has explicitly chosen a
-    // default. Without a default the notification tap lands on HomeScreen
-    // so the user can pick for themselves.
-    const defaultCl = checklists.find((cl) => cl.id === settings.defaultChecklistId);
     await sendTripStartNotification(
       defaultCl?.name,
       defaultCl?.id,

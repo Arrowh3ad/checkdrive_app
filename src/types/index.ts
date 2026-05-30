@@ -142,6 +142,11 @@ export type Settings = {
   // banner tap open this specific checklist instead of the first autoDetect one.
   // `null` means "no default — use the first autoDetect checklist".
   defaultChecklistId: string | null;
+  // When true, a car-connect trigger opens the default checklist immediately
+  // instead of only posting a notification. Default false: the gentler
+  // notification-only behavior (the app may still be foregrounded by the
+  // deep link itself, but it won't take over with a checklist).
+  openChecklistOnConnect: boolean;
 };
 
 // The navigation param map consumed by React Navigation's `createNativeStackNavigator`.

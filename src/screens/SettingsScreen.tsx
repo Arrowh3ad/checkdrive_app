@@ -209,6 +209,17 @@ export function SettingsScreen() {
           />
           <View style={s.divider} />
           <ToggleRow
+            title="Open app on connect"
+            subtitle={
+              settings.isPro
+                ? 'Open your default checklist, not just a notification'
+                : 'Open the app on connect, not just a notification'
+            }
+            value={settings.openChecklistOnConnect}
+            onToggle={(v) => updateSettings({ openChecklistOnConnect: v })}
+          />
+          <View style={s.divider} />
+          <ToggleRow
             title="Trip streaks"
             subtitle="Track consecutive complete trips"
             value={settings.tripStreaks}

@@ -256,6 +256,7 @@ export const useAppStore = create<AppStore>()(
         currentStreak: 5,
         totalTrips: 47,
         defaultChecklistId: null,
+        openChecklistOnConnect: false,
       },
       connectedToVehicle: true,
       activeRuns: [],

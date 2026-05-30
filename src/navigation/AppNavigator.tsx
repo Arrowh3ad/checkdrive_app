@@ -30,10 +30,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React from 'react';
-import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Linking from 'expo-linking';
 import { RootStackParamList } from '../types';
+import { navigationRef } from './navigationRef';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ChecklistRunScreen } from '../screens/ChecklistRunScreen';
 import { MultiStopScreen } from '../screens/MultiStopScreen';
@@ -46,10 +47,10 @@ import { SignInScreen } from '../screens/auth/SignInScreen';
 import { SignUpScreen } from '../screens/auth/SignUpScreen';
 import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen';
 
-// The generic parameter `<RootStackParamList>` makes `navigationRef.navigate()`
-// type-safe: TypeScript will error if you pass a screen name that doesn't exist
-// in the param map, or if you omit required params.
-export const navigationRef = createNavigationContainerRef<RootStackParamList>();
+// Re-exported so existing import sites (App.tsx) can keep importing it from
+// here. The ref itself is defined in ./navigationRef to avoid a require cycle —
+// see that file's header for why.
+export { navigationRef };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
