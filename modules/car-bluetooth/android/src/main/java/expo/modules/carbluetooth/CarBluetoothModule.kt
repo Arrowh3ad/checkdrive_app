@@ -66,17 +66,10 @@ internal object CarPrefs {
   private const val KEY_ADDR = "target_address"
   private const val KEY_NAME = "target_name"
 
-  // Feature config, synced from JS via configure() so the receiver/service can
-  // honor the user's settings even when the JS runtime isn't running.
-  private const val KEY_PARK_ENABLED = "parking_enabled"
+  // Back-seat reminder config, synced from JS via configure() so the receiver
+  // can post the right disconnect notification even when the JS runtime is dead.
   private const val KEY_BACKSEAT_ENABLED = "backseat_enabled"
   private const val KEY_BACKSEAT_MSG = "backseat_message"
-
-  // The most recent captured parking fix. lat/lng stored as strings to keep
-  // full double precision (SharedPreferences has no double type).
-  private const val KEY_PARK_LAT = "park_lat"
-  private const val KEY_PARK_LNG = "park_lng"
-  private const val KEY_PARK_TIME = "park_time"
 
   private fun prefs(c: Context) = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
@@ -87,40 +80,21 @@ internal object CarPrefs {
   fun getAddress(c: Context): String? = prefs(c).getString(KEY_ADDR, null)
   fun getName(c: Context): String? = prefs(c).getString(KEY_NAME, null)
 
-  // Clears only the watched-car target — leaves feature config + last parking
-  // intact so forgetting a car doesn't wipe the user's settings.
+  // Clears only the watched-car target — leaves feature config intact so
+  // forgetting a car doesn't wipe the user's settings.
   fun clearTarget(c: Context) {
     prefs(c).edit().remove(KEY_ADDR).remove(KEY_NAME).apply()
   }
 
-  fun setConfig(c: Context, parkingEnabled: Boolean, backSeatEnabled: Boolean, backSeatMessage: String?) {
+  fun setConfig(c: Context, backSeatEnabled: Boolean, backSeatMessage: String?) {
     prefs(c).edit()
-      .putBoolean(KEY_PARK_ENABLED, parkingEnabled)
       .putBoolean(KEY_BACKSEAT_ENABLED, backSeatEnabled)
       .putString(KEY_BACKSEAT_MSG, backSeatMessage)
       .apply()
   }
 
-  fun isParkingEnabled(c: Context): Boolean = prefs(c).getBoolean(KEY_PARK_ENABLED, false)
   fun isBackSeatEnabled(c: Context): Boolean = prefs(c).getBoolean(KEY_BACKSEAT_ENABLED, false)
   fun getBackSeatMessage(c: Context): String? = prefs(c).getString(KEY_BACKSEAT_MSG, null)
-
-  fun setParking(c: Context, lat: Double, lng: Double, timeMs: Long) {
-    prefs(c).edit()
-      .putString(KEY_PARK_LAT, lat.toString())
-      .putString(KEY_PARK_LNG, lng.toString())
-      .putLong(KEY_PARK_TIME, timeMs)
-      .apply()
-  }
-
-  // Returns (lat, lng, epochMillis) or null if nothing saved yet.
-  fun getParking(c: Context): Triple<Double, Double, Long>? {
-    val p = prefs(c)
-    val lat = p.getString(KEY_PARK_LAT, null)?.toDoubleOrNull() ?: return null
-    val lng = p.getString(KEY_PARK_LNG, null)?.toDoubleOrNull() ?: return null
-    val t = p.getLong(KEY_PARK_TIME, 0L)
-    return Triple(lat, lng, t)
-  }
 }
 
 class CarBluetoothModule : Module() {
@@ -144,7 +118,7 @@ class CarBluetoothModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("CarBluetooth")
 
-    Events(EVENT_CONNECT, EVENT_DISCONNECT, EVENT_PARKING)
+    Events(EVENT_CONNECT, EVENT_DISCONNECT)
 
     // Keep a static handle to the live instance so the receiver can emit JS
     // events when the app is running. Cleared on destroy to avoid leaking a
@@ -222,26 +196,10 @@ class CarBluetoothModule : Module() {
       CarPrefs.clearTarget(context)
     }
 
-    // Sync feature settings from JS → SharedPreferences so the receiver and the
-    // parking service can honor them even when the JS runtime isn't running.
-    AsyncFunction("configure") { parkingEnabled: Boolean, backSeatEnabled: Boolean, backSeatMessage: String? ->
-      CarPrefs.setConfig(context, parkingEnabled, backSeatEnabled, backSeatMessage)
-    }
-
-    // The most recent parking fix the native service captured, or null. Returns
-    // epoch millis as `savedAtMs`; the JS layer converts to an ISO string.
-    AsyncFunction("getLastParking") {
-      val p = CarPrefs.getParking(context) ?: return@AsyncFunction null
-      mapOf("lat" to p.first, "lng" to p.second, "savedAtMs" to p.third)
-    }
-
-    // Manually capture the current location now (used by the "Save my spot"
-    // button and for testing without a real car disconnect). Starts the same
-    // foreground service; the result flows back via the onParkingSaved event.
-    AsyncFunction("captureParkingNow") {
-      val ctx = context
-      val svc = Intent(ctx, CarParkingService::class.java)
-      if (Build.VERSION.SDK_INT >= 26) ctx.startForegroundService(svc) else ctx.startService(svc)
+    // Sync the back-seat reminder setting from JS → SharedPreferences so the
+    // receiver posts the right disconnect notification even when JS is dead.
+    AsyncFunction("configure") { backSeatEnabled: Boolean, backSeatMessage: String? ->
+      CarPrefs.setConfig(context, backSeatEnabled, backSeatMessage)
     }
 
     // Receives the CDM picker result. The picker returns either an
@@ -358,14 +316,9 @@ class CarBluetoothModule : Module() {
     )
   }
 
-  internal fun emitParking(lat: Double, lng: Double, timeMs: Long) {
-    sendEvent(EVENT_PARKING, mapOf("lat" to lat, "lng" to lng, "savedAtMs" to timeMs))
-  }
-
   companion object {
     const val EVENT_CONNECT = "onCarConnected"
     const val EVENT_DISCONNECT = "onCarDisconnected"
-    const val EVENT_PARKING = "onParkingSaved"
 
     // Live module instance (null when the JS runtime isn't running).
     @Volatile
@@ -393,30 +346,12 @@ class CarBluetoothModule : Module() {
         lastTime = now
       }
 
-      // On disconnect (= just parked), kick off a brief foreground service to
-      // capture the parking location, if the user enabled the feature. Starting
-      // a foreground service from this background broadcast is permitted by the
-      // companion-association exemption; if the OS still blocks it we just skip.
-      if (!connected && CarPrefs.isParkingEnabled(context)) {
-        try {
-          val svc = Intent(context, CarParkingService::class.java)
-          if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(svc)
-          else context.startService(svc)
-        } catch (_: Exception) { /* FGS-from-background blocked — skip capture */ }
-      }
-
       val live = instance
       if (live != null) {
         live.emitEvent(connected, address)
       } else {
         postNotification(context, connected)
       }
-    }
-
-    // Called by CarParkingService once it has a fix. Emits to JS if alive; the
-    // fix is also persisted to SharedPreferences for the next-launch sync.
-    fun notifyParkingSaved(lat: Double, lng: Double, timeMs: Long) {
-      instance?.emitParking(lat, lng, timeMs)
     }
 
     private fun postNotification(context: Context, connected: Boolean) {

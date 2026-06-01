@@ -25,10 +25,7 @@ jest.mock('../../navigation/navigationRef', () => ({
 // Native module: never load Kotlin / the native bridge in a unit test.
 jest.mock('../../../modules/car-bluetooth', () => ({
   addConnectionListener: jest.fn(() => () => {}),
-  addParkingListener: jest.fn(() => () => {}),
-  getLastParking: jest.fn(async () => null),
   configure: jest.fn(async () => {}),
-  captureParkingNow: jest.fn(async () => true),
 }));
 
 // Expo runtime bits touched at import time — neutralize them.

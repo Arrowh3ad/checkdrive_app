@@ -23,95 +23,16 @@ import {
   TouchableOpacity,
   Switch,
   StyleSheet,
-  Alert,
-  Platform,
-  PermissionsAndroid,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../store/useAppStore';
-import { signOutUser } from '../services/firebase';
 import { theme } from '../theme';
 
 export function SettingsScreen() {
   const navigation = useNavigation();
-  const { settings, updateSettings, checklists, downgradeFromPro, user } = useAppStore();
-  const usedSlots = checklists.length;
-  // Pro users see "∞"; free users see the numeric cap.
-  const maxSlots = settings.isPro ? '∞' : '3';
-
-  // Derive the avatar text. Use the first two chars of the email local-part,
-  // uppercased. Guests get a generic person glyph instead of letters.
-  const initials = user?.email
-    ? user.email.split('@')[0].slice(0, 2).toUpperCase()
-    : null;
-
-  // Enabling the parking finder needs location permission (foreground is
-  // enough — capture happens via a foreground service). Android-only.
-  async function handleParkingToggle(v: boolean) {
-    if (!v) {
-      updateSettings({ parkingFinderEnabled: false });
-      return;
-    }
-    try {
-      const res = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
-      );
-      if (res === PermissionsAndroid.RESULTS.GRANTED) {
-        updateSettings({ parkingFinderEnabled: true });
-      } else {
-        Alert.alert(
-          'Location needed',
-          'Parking finder needs location permission to save where you parked. ' +
-            'You can enable it in Settings → Apps → CheckDrive → Permissions.'
-        );
-      }
-    } catch {
-      Alert.alert('Something went wrong', 'Could not request location permission.');
-    }
-  }
-
-  function handleSignOut() {
-    Alert.alert(
-      'Sign out?',
-      'You can sign back in any time. Your local checklists stay on this device.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign out',
-          style: 'destructive',
-          // signOutUser triggers the auth listener which clears `user` in the
-          // store; the account card re-renders into its guest state.
-          onPress: () => { void signOutUser(); },
-        },
-      ]
-    );
-  }
-
-  function handleManageSubscription() {
-    // In production this would open the OS's subscription management flow
-    // (StoreKit on iOS, Google Play Billing on Android). "Simulate Downgrade"
-    // lets us test gated-feature removal during development.
-    Alert.alert(
-      'Manage Subscription',
-      'In production this opens the App Store / Google Play subscription management page.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Simulate Downgrade',
-          style: 'destructive',
-          onPress: () => {
-            downgradeFromPro();
-            Alert.alert(
-              'Downgraded to free',
-              'You are now on the free plan. Checklists beyond 3 have been removed.'
-            );
-          },
-        },
-      ]
-    );
-  }
+  const { settings, updateSettings } = useAppStore();
 
   return (
     <SafeAreaView style={s.safe}>
@@ -124,104 +45,6 @@ export function SettingsScreen() {
           </TouchableOpacity>
           <Text style={s.title}>Settings</Text>
         </View>
-
-        {/* ── Account card ─────────────────────────────────────────────────── */}
-        {/* Two states: signed in (show email + sign-out row) vs guest (show a
-            "Sign in" CTA). The Sign In screen is also where new users sign up. */}
-        <View style={s.card}>
-          <Text style={s.cardLabel}>Account</Text>
-          <View style={s.accountRow}>
-            <View style={s.avatar}>
-              {initials ? (
-                <Text style={s.avatarText}>{initials}</Text>
-              ) : (
-                <Ionicons name="person-outline" size={20} color={theme.colors.primaryDeep} />
-              )}
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.accountName} numberOfLines={1}>
-                {user?.email ?? 'Guest'}
-              </Text>
-              <Text style={s.accountMeta}>
-                {settings.isPro
-                  ? 'Pro plan · Unlimited checklists'
-                  : `Free plan · ${usedSlots}/${maxSlots} checklists`}
-              </Text>
-            </View>
-          </View>
-
-          {/* Honest expectation-setting: data + Pro are local to this device. */}
-          <Text style={s.syncNote}>
-            Checklists, settings, and Pro are stored on this device — cross-device sync isn't
-            available yet.
-          </Text>
-
-          {/* Guest CTA: prompts sign-in. No account is required to use the app —
-              this is just where users go to enable Pro / cross-device sync. */}
-          {!user && (
-            <TouchableOpacity
-              style={s.accountCta}
-              onPress={() => (navigation as any).navigate('SignIn')}
-            >
-              <Ionicons name="log-in-outline" size={16} color={theme.colors.primary} />
-              <Text style={s.accountCtaText}>Sign in or create account</Text>
-              <Ionicons
-                name="chevron-forward"
-                size={14}
-                color={theme.colors.textTertiary}
-                style={{ marginLeft: 'auto' }}
-              />
-            </TouchableOpacity>
-          )}
-
-          {/* Signed-in: offer sign-out. Destructive-style alert confirms. */}
-          {user && (
-            <TouchableOpacity style={s.accountCta} onPress={handleSignOut}>
-              <Ionicons name="log-out-outline" size={16} color={theme.colors.danger} />
-              <Text style={[s.accountCtaText, { color: theme.colors.danger }]}>Sign out</Text>
-              <Ionicons
-                name="chevron-forward"
-                size={14}
-                color={theme.colors.textTertiary}
-                style={{ marginLeft: 'auto' }}
-              />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* ── Pro upgrade banner (free users only) ─────────────────────────── */}
-        {!settings.isPro && (
-          <View style={s.proBanner}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.proTitle}>
-                <MaterialCommunityIcons name="crown" size={13} /> Upgrade to Pro
-              </Text>
-              <Text style={s.proSub}>Unlimited lists · No ads · Multi-stop · Parking extras</Text>
-            </View>
-            <TouchableOpacity
-              style={s.proBtn}
-              onPress={() => (navigation as any).navigate('Pro')}
-            >
-              <Text style={s.proBtnText}>$2.99/mo</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* ── Subscription management (Pro users only) ─────────────────────── */}
-        {settings.isPro && (
-          <TouchableOpacity style={s.card} onPress={handleManageSubscription}>
-            <View style={s.setupRow}>
-              <View>
-                <Text style={s.setupTitle}>
-                  <MaterialCommunityIcons name="crown" size={14} color={theme.colors.purple} />{' '}
-                  Manage subscription
-                </Text>
-                <Text style={s.setupSub}>Cancel or change your Pro plan</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={theme.colors.textTertiary} />
-            </View>
-          </TouchableOpacity>
-        )}
 
         {/* ── Preferences ──────────────────────────────────────────────────── */}
         {/* Each toggle writes directly to the Zustand store via updateSettings() */}
@@ -243,25 +66,10 @@ export function SettingsScreen() {
           <View style={s.divider} />
           <ToggleRow
             title="Open app on connect"
-            subtitle={
-              settings.isPro
-                ? 'Open your default checklist, not just a notification'
-                : 'Open the app on connect, not just a notification'
-            }
+            subtitle="Open the app on connect, not just a notification"
             value={settings.openChecklistOnConnect}
             onToggle={(v) => updateSettings({ openChecklistOnConnect: v })}
           />
-          {Platform.OS === 'android' && (
-            <>
-              <View style={s.divider} />
-              <ToggleRow
-                title="Parking finder"
-                subtitle="Save where you parked when the car disconnects"
-                value={settings.parkingFinderEnabled}
-                onToggle={handleParkingToggle}
-              />
-            </>
-          )}
           <View style={s.divider} />
           <ToggleRow
             title="Trip streaks"

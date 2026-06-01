@@ -9,9 +9,9 @@
 import { Platform } from 'react-native';
 
 import Native from './src/CarBluetoothModule';
-import { CarConnectionEvent, CarDevice, ParkingFix } from './src/CarBluetooth.types';
+import { CarConnectionEvent, CarDevice } from './src/CarBluetooth.types';
 
-export type { CarDevice, CarConnectionEvent, ParkingFix };
+export type { CarDevice, CarConnectionEvent };
 
 // `Native` is null when the native module isn't linked into the running app
 // (Expo Go, web, or any build without the compiled module). `available` rolls
@@ -85,52 +85,15 @@ export function addConnectionListener(
 }
 
 // Push feature settings down to the native side (SharedPreferences) so the
-// receiver/parking service behave correctly even when JS isn't running.
+// receiver posts the correct disconnect notification even when JS isn't running.
 export async function configure(opts: {
-  parkingEnabled: boolean;
   backSeatEnabled: boolean;
   backSeatMessage?: string | null;
 }): Promise<void> {
   if (!available) return;
   try {
-    await Native!.configure(
-      opts.parkingEnabled,
-      opts.backSeatEnabled,
-      opts.backSeatMessage ?? null
-    );
+    await Native!.configure(opts.backSeatEnabled, opts.backSeatMessage ?? null);
   } catch {
     /* best-effort */
   }
-}
-
-// The most recent parking fix captured natively, or null. Used on app launch
-// to sync a spot that was saved while the app was killed.
-export async function getLastParking(): Promise<ParkingFix | null> {
-  if (!available) return null;
-  try {
-    return await Native!.getLastParking();
-  } catch {
-    return null;
-  }
-}
-
-// Manually capture the current location (the "Save my spot" button / testing).
-// The saved fix arrives via the onParkingSaved listener. Returns whether the
-// capture was kicked off (false when native detection is unavailable).
-export async function captureParkingNow(): Promise<boolean> {
-  if (!available) return false;
-  try {
-    await Native!.captureParkingNow();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// Subscribe to parking-saved events (fired when the native service captures a
-// fix while the app is running). Returns an unsubscribe function.
-export function addParkingListener(onSaved: (fix: ParkingFix) => void): () => void {
-  if (!available) return () => {};
-  const sub = Native!.addListener('onParkingSaved', onSaved);
-  return () => sub.remove();
 }

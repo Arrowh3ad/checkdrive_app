@@ -106,34 +106,6 @@ export function TripHistoryScreen() {
     );
   }
 
-  // ── Pro guard ─────────────────────────────────────────────────────────────
-  if (!settings.isPro) {
-    return (
-      <SafeAreaView style={s.safe}>
-        <View style={s.topbar}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-            <Ionicons name="arrow-back" size={22} color={theme.colors.textSecondary} />
-          </TouchableOpacity>
-          <Text style={s.title}>Trip History</Text>
-          <View style={s.actionBtn} />
-        </View>
-        <View style={s.lockedWrap}>
-          <Ionicons name="lock-closed-outline" size={32} color={theme.colors.textTertiary} />
-          <Text style={s.lockedTitle}>Pro feature</Text>
-          <Text style={s.lockedSub}>
-            Full trip history with item timestamps and bulk delete is available on Pro.
-          </Text>
-          <TouchableOpacity
-            style={s.upgradeBtn}
-            onPress={() => (navigation as any).navigate('Pro')}
-          >
-            <Text style={s.upgradeBtnText}>Upgrade to Pro</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (

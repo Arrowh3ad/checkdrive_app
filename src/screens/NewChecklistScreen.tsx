@@ -263,19 +263,6 @@ export function NewChecklistScreen() {
       Alert.alert('Name required', 'Please enter a checklist name.');
       return;
     }
-    // Free plan checklist cap — checked again here in case the user navigated
-    // directly to this screen without going through the HomeScreen guard.
-    if (!settings.isPro && !isEditing && checklists.length >= 3) {
-      Alert.alert(
-        'Checklist limit reached',
-        'Free plan allows up to 3 checklists. Upgrade to Pro for unlimited.',
-        [
-          { text: 'Not now', style: 'cancel' },
-          { text: 'Upgrade', onPress: () => (navigation as any).navigate('Pro') },
-        ]
-      );
-      return;
-    }
     if (isMultiStop) {
       if (stops.length === 0) {
         Alert.alert('Stops required', 'Add at least one stop.');
@@ -463,25 +450,10 @@ export function NewChecklistScreen() {
           <View style={s.card}>
             <Text style={s.cardSectionLabel}>Trip mode</Text>
             <ToggleRow
-              title={`Multi-stop trip${!settings.isPro ? ' (Pro)' : ''}`}
+              title="Multi-stop trip"
               subtitle="Per-stop checklists with CarPlay auto-advance"
               value={isMultiStop}
-              onToggle={(v) => {
-                if (!settings.isPro) {
-                  // Show the upsell dialog without changing state.
-                  Alert.alert(
-                    'Pro feature',
-                    'Upgrade to Pro to create multi-stop trips.',
-                    [
-                      { text: 'Not now', style: 'cancel' },
-                      { text: 'Upgrade', onPress: () => (navigation as any).navigate('Pro') },
-                    ]
-                  );
-                  return;
-                }
-                setIsMultiStop(v);
-              }}
-              disabled={!settings.isPro}
+              onToggle={setIsMultiStop}
             />
           </View>
 
@@ -606,24 +578,6 @@ export function NewChecklistScreen() {
               <TouchableOpacity style={se.addStopBtn} onPress={addStop}>
                 <Ionicons name="add" size={15} color={theme.colors.purple} />
                 <Text style={se.addStopText}> Add stop</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Pro upsell banner — shown in create mode for free users */}
-          {!settings.isPro && !isEditing && (
-            <View style={s.proBanner}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.proTitle}>
-                  <Ionicons name="star" size={13} /> Multi-stop, parking extras & more
-                </Text>
-                <Text style={s.proSub}>Unlock with Pro — $2.99/mo</Text>
-              </View>
-              <TouchableOpacity
-                style={s.proBtn}
-                onPress={() => (navigation as any).navigate('Pro')}
-              >
-                <Text style={s.proBtnText}>Upgrade</Text>
               </TouchableOpacity>
             </View>
           )}

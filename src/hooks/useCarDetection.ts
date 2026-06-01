@@ -190,17 +190,6 @@ export async function simulateVehicleDisconnect(): Promise<void> {
   }
 }
 
-// Adds a captured parking fix to the store. Shared by the live onParkingSaved
-// event and the app-launch sync (getLastParking). The store dedupes fixes
-// captured within 60s of each other, so calling this from both is safe.
-export function syncParkingFix(fix: { lat: number; lng: number; savedAtMs: number }): void {
-  useAppStore.getState().addParkingRecord({
-    lat: fix.lat,
-    lng: fix.lng,
-    savedAt: new Date(fix.savedAtMs).toISOString(),
-  });
-}
-
 // ── Hook ─────────────────────────────────────────────────────────────────────
 // Used in HomeScreen to wire up the Linking listener for the whole session.
 // The hook delegates to the standalone functions above, so the `useCallback`
@@ -255,39 +244,18 @@ export function useCarDetection() {
     return unsubscribe;
   }, [handleVehicleConnect, handleVehicleDisconnect]);
 
-  // ── Parking capture (Android) ─────────────────────────────────────────────
-  // Two paths feed the parking store: the live onParkingSaved event (app
-  // running when the spot is captured) and a one-shot getLastParking() sync on
-  // mount (covers a spot captured while the app was killed). The store dedupes,
-  // so overlap is harmless. Both no-op when native detection is unavailable.
-  useEffect(() => {
-    const unsubscribe = CarBluetooth.addParkingListener((fix) => syncParkingFix(fix));
-    CarBluetooth.getLastParking().then((fix) => {
-      if (fix) syncParkingFix(fix);
-    });
-    return unsubscribe;
-  }, []);
-
   // ── Native config sync (Android) ──────────────────────────────────────────
-  // Push the parking + back-seat settings down to SharedPreferences so the
-  // native receiver/service behave correctly even when JS isn't running. The
-  // back-seat flag mirrors the disconnect logic above: it's driven by the
-  // default checklist's setting. Re-runs whenever those inputs change.
-  const settings = useAppStore((s) => s.settings);
+  // Push the back-seat settings down to SharedPreferences so the native
+  // receiver posts the right disconnect notification even when JS isn't running.
+  // Keyed off the current trip's checklist, mirroring the disconnect logic.
   const checklists = useAppStore((s) => s.checklists);
   const lastTripChecklistId = useAppStore((s) => s.lastTripChecklistId);
-  // Back-seat config mirrors the disconnect logic: keyed off the current trip's
-  // checklist so the killed-app native path stays consistent with the live one.
   const tripForBackSeat = checklists.find((c) => c.id === lastTripChecklistId);
   const backSeatEnabled = tripForBackSeat?.backSeatReminder ?? false;
   const backSeatMessage = tripForBackSeat?.backSeatMessage ?? null;
   useEffect(() => {
-    void CarBluetooth.configure({
-      parkingEnabled: settings.parkingFinderEnabled,
-      backSeatEnabled,
-      backSeatMessage,
-    });
-  }, [settings.parkingFinderEnabled, backSeatEnabled, backSeatMessage]);
+    void CarBluetooth.configure({ backSeatEnabled, backSeatMessage });
+  }, [backSeatEnabled, backSeatMessage]);
 
   // ── Background fetch registration ─────────────────────────────────────────
   // Registers a background-fetch slot that iOS/Android can wake the app into

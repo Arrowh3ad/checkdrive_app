@@ -61,17 +61,6 @@ export type Checklist = {
   createdAt: string;            // ISO timestamp; used for sorting / display
 };
 
-// A saved "where did I park" location, captured when the car disconnects.
-// lat/lng/savedAt are written by the native parking service (works even when the
-// app is killed); photoUri and note are optional Pro enrichments added in-app.
-export type ParkingRecord = {
-  id: string;
-  lat: number;
-  lng: number;
-  savedAt: string;   // ISO timestamp of capture
-  photoUri?: string; // Pro: local file URI of a photo of the spot
-  note?: string;     // Pro: free text, e.g. "Level 3, B12"
-};
 
 // Per-item record stored inside a TripLog (Pro only).
 // Captures the label and the exact moment the user tapped the checkbox.
@@ -164,10 +153,6 @@ export type Settings = {
   // notification-only behavior (the app may still be foregrounded by the
   // deep link itself, but it won't take over with a checklist).
   openChecklistOnConnect: boolean;
-  // When true, disconnecting from the car captures your parking location (via
-  // the native foreground-location service on Android). Default false; enabling
-  // it prompts for location permission. iOS has no equivalent capture path.
-  parkingFinderEnabled: boolean;
 };
 
 // The navigation param map consumed by React Navigation's `createNativeStackNavigator`.
@@ -183,14 +168,6 @@ export type RootStackParamList = {
   MultiStop: { checklistId: string };
   NewChecklist: { checklistId?: string } | undefined;
   Settings: undefined;
-  Pro: undefined;
   CarDetectionSetup: undefined;
-  Parking: undefined; // "Where did I park" — latest spot + history
-  TripHistory: undefined; // Pro: full history with timestamps + multi-select delete
-  // Auth screens. Reached when a guest tries to go Pro, or from Settings.
-  // SignIn ↔ SignUp swap via navigation.replace (they're alternatives, not a
-  // stack), so a single goBack() after success returns to the caller.
-  SignIn: undefined;
-  SignUp: undefined;
-  ForgotPassword: undefined;
+  TripHistory: undefined; // full trip history with timestamps + multi-select delete
 };

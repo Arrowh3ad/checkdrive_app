@@ -12,17 +12,8 @@ export type CarConnectionEvent = {
   address: string | null;
 };
 
-// A raw parking fix from the native side. `savedAtMs` is epoch milliseconds;
-// the app converts it to an ISO string for the ParkingRecord store.
-export type ParkingFix = {
-  lat: number;
-  lng: number;
-  savedAtMs: number;
-};
-
 // Event map for the native module (used to type addListener).
 export type CarBluetoothEvents = {
   onCarConnected: (event: CarConnectionEvent) => void;
   onCarDisconnected: (event: CarConnectionEvent) => void;
-  onParkingSaved: (event: ParkingFix) => void;
 };

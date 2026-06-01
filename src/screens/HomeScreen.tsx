@@ -48,16 +48,6 @@ import { formatTimeAgo } from '../utils/time';
 // type-safe: TypeScript knows which screens are reachable from here.
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
-// Compact relative time for the parking card.
-function parkAgo(iso: string): string {
-  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins} min ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} hr${hrs > 1 ? 's' : ''} ago`;
-  return `${Math.floor(hrs / 24)} day${Math.floor(hrs / 24) > 1 ? 's' : ''} ago`;
-}
-
 export function HomeScreen() {
   const navigation = useNavigation<Nav>();
   const {
@@ -70,12 +60,11 @@ export function HomeScreen() {
     duplicateChecklist,
     activeRuns,
     clearActiveRun,
-    parking,
   } = useAppStore();
 
-  // Mounting useCarDetection here registers the deep-link listener for the
-  // entire app session. The hook also exposes simulate helpers for the banner.
-  const { simulateConnect, simulateDisconnect } = useCarDetection();
+  // Mounting useCarDetection here registers the deep-link + native car-event
+  // listeners for the entire app session.
+  useCarDetection();
 
   // Derived stats — computed inline to avoid stale closure issues with useState.
   const recentLogs = tripLogs.slice(0, 3);
@@ -98,36 +87,12 @@ export function HomeScreen() {
 
   // Navigates to the correct run screen based on whether the checklist is
   // multi-stop (MultiStopScreen) or regular (ChecklistRunScreen).
-  // Multi-stop is Pro-only: free users who have a multi-stop checklist (created
-  // while Pro, kept after downgrade) see an upsell alert instead.
   function onChecklistPress(id: string, isMultiStop: boolean) {
-    if (isMultiStop && !settings.isPro) {
-      Alert.alert(
-        'Pro feature',
-        'Multi-stop trips require Pro. Upgrade to run this checklist, or delete it from the ⋮ menu.',
-        [
-          { text: 'Not now', style: 'cancel' },
-          { text: 'Upgrade', onPress: () => navigation.navigate('Pro') },
-        ]
-      );
-      return;
-    }
     navigation.navigate(isMultiStop ? 'MultiStop' : 'ChecklistRun', { checklistId: id });
   }
 
-  // Enforces the free-plan 3-checklist limit before navigating to NewChecklist.
+  // Opens the new-checklist editor. (MVP: no plan limit — all features free.)
   function onNewChecklist() {
-    if (!settings.isPro && checklists.length >= 3) {
-      Alert.alert(
-        'Checklist limit reached',
-        'Free plan allows up to 3 checklists. Upgrade to Pro for unlimited.',
-        [
-          { text: 'Not now', style: 'cancel' },
-          { text: 'Upgrade to Pro', onPress: () => navigation.navigate('Pro') },
-        ]
-      );
-      return;
-    }
     navigation.navigate('NewChecklist');
   }
 
@@ -138,29 +103,9 @@ export function HomeScreen() {
 
     Alert.alert(cl.name, undefined, [
       {
-        // Label changes depending on current default state and Pro status.
-        text: isDefault
-          ? 'Remove as default'
-          : settings.isPro
-          ? 'Set as default'
-          : 'Set as default (Pro)',
-        onPress: () => {
-          // Removing the default is always allowed (even on free plan after a downgrade).
-          // Only gate the *setting* action behind Pro.
-          if (!settings.isPro && !isDefault) {
-            Alert.alert(
-              'Pro feature',
-              'Set a default checklist so the CarPlay notification opens it directly.',
-              [
-                { text: 'Not now', style: 'cancel' },
-                { text: 'Upgrade', onPress: () => navigation.navigate('Pro') },
-              ]
-            );
-            return;
-          }
-          // Toggle: if this checklist is already the default, clear it; otherwise set it.
-          setDefaultChecklist(isDefault ? null : cl.id);
-        },
+        // Toggle: clear the default if this is it, otherwise set it.
+        text: isDefault ? 'Remove as default' : 'Set as default',
+        onPress: () => setDefaultChecklist(isDefault ? null : cl.id),
       },
       {
         text: 'Edit',
@@ -168,21 +113,8 @@ export function HomeScreen() {
         onPress: () => navigation.navigate('NewChecklist', { checklistId: cl.id }),
       },
       {
-        text: settings.isPro ? 'Duplicate' : 'Duplicate (Pro)',
-        onPress: () => {
-          if (!settings.isPro) {
-            Alert.alert(
-              'Pro feature',
-              'Upgrade to Pro to duplicate checklists.',
-              [
-                { text: 'Not now', style: 'cancel' },
-                { text: 'Upgrade', onPress: () => navigation.navigate('Pro') },
-              ]
-            );
-            return;
-          }
-          duplicateChecklist(cl.id);
-        },
+        text: 'Duplicate',
+        onPress: () => duplicateChecklist(cl.id),
       },
       {
         text: 'Delete',
@@ -245,8 +177,6 @@ export function HomeScreen() {
         </View>
 
         {/* ── Vehicle Detection Banner ────────────────────────────────────── */}
-        {/* The banner's tap-to-run area is separate from the Simulate button so
-            both touch targets function independently.                         */}
         <TouchableOpacity
           activeOpacity={0.8}
           style={[s.detectBanner, !connectedToVehicle && s.detectBannerOff]}
@@ -267,7 +197,7 @@ export function HomeScreen() {
           />
           <View style={{ flex: 1 }}>
             <Text style={[s.detectTitle, !connectedToVehicle && s.detectTitleOff]}>
-              {connectedToVehicle ? 'CarPlay connected' : 'No car connected'}
+              {connectedToVehicle ? 'Car connected' : 'No car connected'}
             </Text>
             <Text style={[s.detectSub, !connectedToVehicle && s.detectSubOff]}>
               {connectedToVehicle
@@ -277,13 +207,6 @@ export function HomeScreen() {
                 : 'Connect CarPlay or Android Auto'}
             </Text>
           </View>
-          {/* Simulate button — toggles connectedToVehicle for testing */}
-          <TouchableOpacity
-            style={s.simBtn}
-            onPress={connectedToVehicle ? simulateDisconnect : simulateConnect}
-          >
-            <Text style={s.simBtnText}>Simulate</Text>
-          </TouchableOpacity>
         </TouchableOpacity>
 
         {/* Link to the setup guide for users who haven't configured Shortcuts yet */}
@@ -292,34 +215,6 @@ export function HomeScreen() {
             <Ionicons name="information-circle-outline" size={13} /> Set up auto-detection →
           </Text>
         </TouchableOpacity>
-
-        {/* ── Parking card ────────────────────────────────────────────────── */}
-        {/* Always shown while the finder is on, so "Where did I park?" lives on
-            the main screen. Reflects the latest spot, or invites a first save. */}
-        {settings.parkingFinderEnabled && (
-          <TouchableOpacity
-            style={s.card}
-            onPress={() => navigation.navigate('Parking')}
-            activeOpacity={0.7}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={s.resumeIcon}>
-                <Ionicons name="location" size={15} color={theme.colors.primaryDeep} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.clName} numberOfLines={1}>
-                  {parking[0] ? 'You parked here' : 'Where did I park?'}
-                </Text>
-                <Text style={s.clMeta}>
-                  {parking[0]
-                    ? `${parkAgo(parking[0].savedAt)} · tap to open in Maps`
-                    : 'Saves automatically when you park · tap to view'}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={theme.colors.textTertiary} />
-            </View>
-          </TouchableOpacity>
-        )}
 
         {/* ── Resume banner ───────────────────────────────────────────────── */}
         {/* In-progress runs the user can jump back into. Tapping a row reopens

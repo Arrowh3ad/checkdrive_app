@@ -25,7 +25,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Checklist, TripLog, Settings, StopStatus, ActiveRun, AuthUser, ParkingRecord } from '../types';
+import { Checklist, TripLog, Settings, StopStatus, ActiveRun, AuthUser } from '../types';
 import { generateId } from '../utils/ids';
 
 // ── Demo / seed data ──────────────────────────────────────────────────────────
@@ -194,11 +194,6 @@ interface AppStore {
   // "continue where you left off" banner. At most one entry per checklistId.
   activeRuns: ActiveRun[];
 
-  // Saved "where did I park" locations, newest first. Written when the car
-  // disconnects (the native service captures lat/lng even when the app is
-  // killed; the app syncs it in here on next launch / on the disconnect event).
-  parking: ParkingRecord[];
-
   // The checklist tied to the current/most-recent trip — set when the car
   // connects (to the would-run checklist) and when a run is started. The
   // back-seat reminder keys off THIS on disconnect, so it works for any trip
@@ -242,16 +237,6 @@ interface AppStore {
   clearActiveRun: (checklistId: string) => void;
   advanceActiveRunStop: (checklistId: string) => void;
 
-  // Parking actions:
-  //   addParkingRecord    → prepend a new saved spot (deduped against a record
-  //                         captured within the last 60s, to absorb the native
-  //                         event + next-launch sync both reporting the same fix).
-  //   updateParkingRecord → attach/replace a Pro photo or note on a record.
-  //   deleteParkingRecord → remove one saved spot.
-  addParkingRecord: (rec: Omit<ParkingRecord, 'id'>) => void;
-  updateParkingRecord: (id: string, data: Partial<ParkingRecord>) => void;
-  deleteParkingRecord: (id: string) => void;
-
   // Records the checklist for the current trip (see lastTripChecklistId).
   setLastTripChecklist: (id: string | null) => void;
 
@@ -276,16 +261,17 @@ export const useAppStore = create<AppStore>()(
         pushNotifications: true,
         bluetoothAutoDetect: true,
         tripStreaks: false,
-        isPro: false,
+        // MVP: no paywall — everything is free. `isPro` stays in the model so the
+        // existing feature gates simply pass; real Pro + IAP returns in a later
+        // update (see the v0-full-prototype commit for the monetization code).
+        isPro: true,
         currentStreak: 5,
         totalTrips: 47,
         defaultChecklistId: null,
         openChecklistOnConnect: false,
-        parkingFinderEnabled: false,
       },
       connectedToVehicle: true,
       activeRuns: [],
-      parking: [],
       lastTripChecklistId: null,
       // Starts as guest; useAuthSync fills this in once Firebase reports state.
       user: null,
@@ -413,36 +399,6 @@ export const useAppStore = create<AppStore>()(
           ),
         })),
 
-      // ── Parking actions ────────────────────────────────────────────────────
-      addParkingRecord: (rec) =>
-        set((state) => {
-          // Dedupe: the same physical park can arrive twice — once via the live
-          // onParkingSaved event and again from the next-launch getLastParking
-          // sync. If the newest record is within 60s of this one, treat it as
-          // the same capture and skip.
-          const newest = state.parking[0];
-          if (newest) {
-            const dt = Math.abs(
-              new Date(rec.savedAt).getTime() - new Date(newest.savedAt).getTime()
-            );
-            if (dt < 60_000) return {};
-          }
-          // Keep the last 50 spots; the UI shows only the latest to free users.
-          return {
-            parking: [{ ...rec, id: generateId() }, ...state.parking].slice(0, 50),
-          };
-        }),
-
-      updateParkingRecord: (id, data) =>
-        set((state) => ({
-          parking: state.parking.map((p) => (p.id === id ? { ...p, ...data } : p)),
-        })),
-
-      deleteParkingRecord: (id) =>
-        set((state) => ({
-          parking: state.parking.filter((p) => p.id !== id),
-        })),
-
       setLastTripChecklist: (id) => set({ lastTripChecklistId: id }),
 
       // ── Pro downgrade ────────────────────────────────────────────────────
@@ -478,7 +434,6 @@ export const useAppStore = create<AppStore>()(
         settings: state.settings,
         connectedToVehicle: state.connectedToVehicle,
         activeRuns: state.activeRuns,
-        parking: state.parking,
         lastTripChecklistId: state.lastTripChecklistId,
       }),
     }

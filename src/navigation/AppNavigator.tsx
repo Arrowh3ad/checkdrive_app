@@ -43,10 +43,6 @@ import { SettingsScreen } from '../screens/SettingsScreen';
 import { ProScreen } from '../screens/ProScreen';
 import { CarDetectionSetupScreen } from '../screens/CarDetectionSetupScreen';
 import { TripHistoryScreen } from '../screens/TripHistoryScreen';
-import { ParkingScreen } from '../screens/ParkingScreen';
-import { SignInScreen } from '../screens/auth/SignInScreen';
-import { SignUpScreen } from '../screens/auth/SignUpScreen';
-import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen';
 
 // Re-exported so existing import sites (App.tsx) can keep importing it from
 // here. The ref itself is defined in ./navigationRef to avoid a require cycle —
@@ -71,11 +67,9 @@ const linking = {
       MultiStop: 'multistop/:checklistId',
       NewChecklist: 'new',
       Settings: 'settings',
-      Pro: 'pro',
       // `trigger` is a special path with no corresponding screen — it's caught
       // by useCarDetection's Linking listener before navigation happens.
       CarDetectionSetup: 'trigger',
-      Parking: 'parking',
     },
   },
 };
@@ -101,15 +95,8 @@ export function AppNavigator({ onReady }: { onReady?: () => void }) {
         <Stack.Screen name="MultiStop" component={MultiStopScreen} />
         <Stack.Screen name="NewChecklist" component={NewChecklistScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
-        <Stack.Screen name="Pro" component={ProScreen} />
         <Stack.Screen name="CarDetectionSetup" component={CarDetectionSetupScreen} />
         <Stack.Screen name="TripHistory" component={TripHistoryScreen} />
-        <Stack.Screen name="Parking" component={ParkingScreen} />
-        {/* Auth screens. SignIn ↔ SignUp swap via navigation.replace so only
-            one ever sits above the caller; ForgotPassword pushes onto SignIn. */}
-        <Stack.Screen name="SignIn" component={SignInScreen} />
-        <Stack.Screen name="SignUp" component={SignUpScreen} />
-        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

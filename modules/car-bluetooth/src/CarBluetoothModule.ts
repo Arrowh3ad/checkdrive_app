@@ -1,27 +1,19 @@
 import { NativeModule, requireOptionalNativeModule } from 'expo';
 
-import { CarBluetoothEvents, CarDevice, ParkingFix } from './CarBluetooth.types';
+import { CarBluetoothEvents, CarDevice } from './CarBluetooth.types';
 
 // Typed handle to the native module. `NativeModule<Events>` gives us a typed
-// addListener() for the connect/disconnect/parking events. The native side is
-// the Android CarBluetoothModule (Kotlin) or the iOS no-op stub.
+// addListener() for the connect/disconnect events. The native side is the
+// Android CarBluetoothModule (Kotlin) or the iOS no-op stub.
 declare class CarBluetoothModule extends NativeModule<CarBluetoothEvents> {
   isSupported(): Promise<boolean>;
   associate(): Promise<CarDevice>;
   getAssociations(): Promise<CarDevice[]>;
   getTarget(): Promise<CarDevice | null>;
   forgetCar(address: string): Promise<void>;
-  // Syncs feature settings to the native side so the receiver/service honor
-  // them even when JS isn't running.
-  configure(
-    parkingEnabled: boolean,
-    backSeatEnabled: boolean,
-    backSeatMessage: string | null
-  ): Promise<void>;
-  // The most recent captured parking fix (epoch-ms timestamp), or null.
-  getLastParking(): Promise<ParkingFix | null>;
-  // Manually capture the current location now (result arrives via onParkingSaved).
-  captureParkingNow(): Promise<void>;
+  // Syncs the back-seat reminder setting to the native side so the receiver
+  // posts the right disconnect notification even when JS isn't running.
+  configure(backSeatEnabled: boolean, backSeatMessage: string | null): Promise<void>;
 }
 
 // requireOptionalNativeModule returns null (instead of throwing) when the native

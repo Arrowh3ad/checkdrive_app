@@ -34,33 +34,6 @@ function patchSettings(patch: Partial<ReturnType<typeof useAppStore.getState>['s
   useAppStore.setState({ settings: { ...useAppStore.getState().settings, ...patch } });
 }
 
-describe('parking records', () => {
-  beforeEach(() => useAppStore.setState({ parking: [] }));
-
-  it('dedupes two fixes captured within 60 seconds', () => {
-    const t = '2026-01-01T12:00:00.000Z';
-    useAppStore.getState().addParkingRecord({ lat: 1, lng: 2, savedAt: t });
-
-    // A second capture 30s later is treated as the same park → ignored.
-    const t30s = new Date(new Date(t).getTime() + 30_000).toISOString();
-    useAppStore.getState().addParkingRecord({ lat: 1, lng: 2, savedAt: t30s });
-
-    expect(useAppStore.getState().parking).toHaveLength(1);
-  });
-
-  it('keeps two fixes more than 60 seconds apart, newest first', () => {
-    const t = '2026-01-01T12:00:00.000Z';
-    useAppStore.getState().addParkingRecord({ lat: 1, lng: 2, savedAt: t });
-
-    const t2min = new Date(new Date(t).getTime() + 120_000).toISOString();
-    useAppStore.getState().addParkingRecord({ lat: 3, lng: 4, savedAt: t2min });
-
-    const parking = useAppStore.getState().parking;
-    expect(parking).toHaveLength(2);
-    expect(parking[0].lat).toBe(3); // most recent is at the front
-  });
-});
-
 describe('downgradeFromPro', () => {
   it('trims checklists to 3 and clears Pro-only state', () => {
     useAppStore.setState({
