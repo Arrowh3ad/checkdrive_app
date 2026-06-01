@@ -21,14 +21,35 @@
 //   Automation: CarPlay Is Connected    → Run "Start CheckDrive"
 //   Automation: CarPlay Is Disconnected → Run "Stop CheckDrive"
 //
+// "ASK FIRST" (Show Alert) — the recommended connect flow
+// ────────────────────────────────────────────────────────
+// A deep link (Open URLs) ALWAYS foregrounds the app — that can't be prevented
+// from inside the app. But the shortcut can present an interactive prompt
+// BEFORE the Open URLs action runs: insert a "Show Alert" action (Scripting,
+// "Show Cancel Button" ON) as the first action. The automation still fires
+// silently (Ask Before Running off), but iOS surfaces the alert as a tappable
+// prompt — tapping OK runs Open URLs and opens the app, Cancel stops the
+// shortcut and nothing opens. This gives the dismissible "notification-style"
+// behavior people want while keeping a one-tap path into the checklist.
+// (Confirmed working on-device with calshow://; checkdrive:// resolves the same
+// way once installed as a standalone build.) Skipping the Show Alert action
+// makes the app open instantly with no prompt — that's the user's choice.
+//
+// GEOFENCING ALTERNATIVE
+// The same "Start CheckDrive" shortcut can be triggered by an Arrive/Leave
+// location automation instead of CarPlay (for users without CarPlay). Caveat:
+// a location automation fires for ONE specific place, so it can't follow a
+// multi-stop trip that visits several different locations — CarPlay (or a
+// manual start) is the better trigger for multi-stop checklists.
+//
 // iOS NOTIFICATION LIMITATION (vs Android)
 // Unlike Android's AutomateIt "Notification" action, iOS Shortcuts' "Show
 // Notification" action is fire-and-forget — you cannot attach a tap/deep-link
-// to it, so its banner opens the Shortcuts app, not CheckDrive. The actionable
-// "tap to open my checklist" notification on iOS is the one CheckDrive itself
-// posts after the Open URLs deep link (the app opens briefly, then with "Open
-// app on connect" off it just notifies). See IOS_NOTIFY_STEPS for the quieter
-// but passive Show Notification path, documented with that caveat.
+// to it, so its banner opens the Shortcuts app, not CheckDrive. The "Ask first"
+// Show Alert flow above is the better way to get a dismissible prompt, because
+// its OK button actually opens the app. The Show Notification path (see
+// IOS_NOTIFY_STEPS) is kept only as a fully-passive fallback, documented with
+// its tap caveat.
 //
 // ANDROID — BLUETOOTH TRIGGER + DEEP-LINK URL
 // ────────────────────────────────────────────
@@ -77,7 +98,7 @@
 // going through the URL scheme.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -85,17 +106,25 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
+  PermissionsAndroid,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme';
 import { simulateVehicleConnect, simulateVehicleDisconnect } from '../hooks/useCarDetection';
+import * as CarBluetooth from '../../modules/car-bluetooth';
+import type { CarDevice } from '../../modules/car-bluetooth';
 
 // ── Step data ─────────────────────────────────────────────────────────────────
 
-// iOS connect — two-shortcut method (steps 1–4: create the shortcut,
-// steps 5–7: create the automation that runs it).
+// iOS connect — two-shortcut method, with the recommended "ask first" prompt.
+// Steps 1–5 build the shortcut (Show Alert → URL → Open URLs); steps 6–8 wire
+// it to the CarPlay automation. The Show Alert action (step 2) is what makes
+// the app prompt-before-opening instead of barging in; skipping it makes the
+// app open instantly.
 const IOS_CONNECT_STEPS = [
   {
     n: '1',
@@ -105,39 +134,58 @@ const IOS_CONNECT_STEPS = [
   },
   {
     n: '2',
-    title: 'Tap "Add Action" → search "URL" → add it',
+    title: 'Add a "Show Alert" action — this is the "ask first" prompt',
     detail:
-      'In the shortcut editor, tap "Add Action". Search for "URL" (it\'s in the Web category). Add it, then type the deep link: checkdrive://trigger',
+      'Tap "Add Action" → search "Show Alert" (Scripting category) → add it. Set the ' +
+      'message to something like "Start your CheckDrive checklist?" and keep "Show Cancel ' +
+      'Button" ON. This is the prompt that pops up when your car connects: tapping OK is ' +
+      'what opens the app, Cancel dismisses it.\n\n' +
+      'Want it to open instantly with no prompt instead? Just skip this step — everything ' +
+      'else works the same.',
   },
   {
     n: '3',
-    title: 'Tap "Add Action" again → search "Open URLs" → add it',
+    title: 'Tap "Add Action" → search "URL" → type checkdrive://trigger',
     detail:
-      '"Open URLs" will automatically use the URL you typed in the previous step. You should now see two actions stacked: URL → Open URLs.',
+      'Search for "URL" (it\'s in the Web category), add it, then type the deep link: ' +
+      'checkdrive://trigger',
   },
   {
     n: '4',
-    title: 'Name the shortcut "Start CheckDrive" → tap Done',
+    title: 'Tap "Add Action" again → search "Open URLs" → add it',
     detail:
-      'Tap the shortcut\'s title at the top of the editor to rename it. Then tap Done. You can test it right now — tapping the shortcut should open CheckDrive.',
+      '"Open URLs" automatically uses the URL from the previous step. Your actions should ' +
+      'now read top to bottom: Show Alert → URL → Open URLs. Because Open URLs sits AFTER ' +
+      'the alert, the app only opens once you tap OK.',
   },
   {
     n: '5',
+    title: 'Name the shortcut "Start CheckDrive" → tap Done',
+    detail:
+      'Tap the shortcut\'s title at the top of the editor to rename it, then tap Done. You ' +
+      'can test it right now — running it should show the alert, and tapping OK should open ' +
+      'CheckDrive.',
+  },
+  {
+    n: '6',
     title: 'Go to Automation tab → "+" → New Automation → CarPlay',
     detail:
       'Switch to the Automation tab. Tap "+" → "New Automation". Scroll through the trigger list to find "CarPlay", then select "Is Connected".',
   },
   {
-    n: '6',
+    n: '7',
     title: 'Tap "Add Action" → search "Run Shortcut" → select "Start CheckDrive"',
     detail:
       'Tap "Add Action" inside the automation editor. Search for "Run Shortcut", add it, then tap the "Shortcut" placeholder and choose "Start CheckDrive" from your shortcuts list.',
   },
   {
-    n: '7',
+    n: '8',
     title: 'Turn off "Ask Before Running" → tap Done',
     detail:
-      'At the bottom of the automation editor, toggle off "Ask Before Running" (and "Notify When Run" if shown). This lets CheckDrive open automatically whenever CarPlay connects.',
+      'At the bottom of the automation editor, toggle off "Ask Before Running" (and "Notify ' +
+      'When Run" if shown). The automation itself now runs silently — but your Show Alert ' +
+      'step still pops up, so you get a prompt you can accept or dismiss every time CarPlay ' +
+      'connects.',
   },
 ];
 
@@ -606,6 +654,174 @@ function StepList({ steps }: { steps: Step[] }) {
   );
 }
 
+// ── Native car detection (Android, beta) ─────────────────────────────────────
+// The recommended Android path: CheckDrive watches the car's Bluetooth itself via
+// CompanionDeviceManager, so no third-party automation app is needed. The user
+// picks their car once from the system dialog; the native module persists it and
+// fires connect/disconnect from then on. Renders a graceful "unavailable" note on
+// devices without CDM support (below Android 12), and nothing at all while the
+// support probe is in flight. On iOS this whole screen shows the Shortcuts tab,
+// so this component only ever mounts on the Android tab.
+function NativeDetectSection() {
+  const [supported, setSupported] = useState<boolean | null>(null);
+  const [car, setCar] = useState<CarDevice | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  // Probe support + load any previously-linked car on mount. `alive` guards
+  // against setting state after unmount (the async calls can outlive the screen).
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const ok = await CarBluetooth.isSupported();
+      if (!alive) return;
+      setSupported(ok);
+      if (ok) {
+        const t = await CarBluetooth.getTarget();
+        if (alive) setCar(t);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // BLUETOOTH_CONNECT is needed to receive ACL connect/disconnect broadcasts;
+  // POST_NOTIFICATIONS (API 33+) lets the fallback notification show.
+  async function ensurePermissions(): Promise<boolean> {
+    try {
+      const perms: string[] = [PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT];
+      if (typeof Platform.Version === 'number' && Platform.Version >= 33) {
+        perms.push(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+      }
+      const res = await PermissionsAndroid.requestMultiple(perms as any);
+      return perms.every(
+        (p) => res[p as keyof typeof res] === PermissionsAndroid.RESULTS.GRANTED
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  async function handlePick() {
+    setBusy(true);
+    try {
+      const granted = await ensurePermissions();
+      if (!granted) {
+        Alert.alert(
+          'Permission needed',
+          'CheckDrive needs the Nearby devices / Bluetooth permission to detect your car. ' +
+            'Enable it in Settings → Apps → CheckDrive → Permissions, then try again.'
+        );
+        return;
+      }
+      const picked = await CarBluetooth.associateCar();
+      setCar(picked);
+      Alert.alert(
+        'Car linked',
+        `CheckDrive will now watch "${picked.name ?? picked.address}". Connect to it to test — ` +
+          'you should get a notification (or the app opens, per your settings).'
+      );
+    } catch (e: any) {
+      // ERR_CANCELLED = the user backed out of the system picker; stay quiet.
+      if (e?.code !== 'ERR_CANCELLED') {
+        Alert.alert(
+          'Couldn’t link the car',
+          e?.message ?? 'Something went wrong opening the device picker.'
+        );
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function handleForget() {
+    if (!car) return;
+    Alert.alert('Forget this car?', `Stop watching "${car.name ?? car.address}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Forget',
+        style: 'destructive',
+        onPress: async () => {
+          await CarBluetooth.forgetCar(car.address);
+          setCar(null);
+        },
+      },
+    ]);
+  }
+
+  // Still probing — render nothing to avoid a flash of the wrong state.
+  if (supported === null) return null;
+
+  if (!supported) {
+    return (
+      <View style={s.nativeCard}>
+        <Text style={s.infoTitle}>Native detection unavailable</Text>
+        <Text style={s.infoText}>
+          This device doesn’t support the system companion-device picker (it needs Android 12 or
+          newer). Use the manual automation steps below instead.
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={s.nativeCard}>
+      <View style={s.nativeBadgeRow}>
+        <Ionicons name="sparkles" size={13} color={theme.colors.primaryDeep} />
+        <Text style={s.nativeBadge}>Easiest · no extra app</Text>
+      </View>
+      <Text style={s.infoTitle}>Let CheckDrive watch your car’s Bluetooth</Text>
+      <Text style={s.infoText}>
+        Pick your car once and CheckDrive detects it directly — no AutomateIt or Shortcuts needed.
+        On connect you’ll get a notification (or the app opens, per “Open app on connect” in
+        Settings).
+      </Text>
+
+      {car ? (
+        <>
+          <View style={s.carRow}>
+            <Ionicons name="bluetooth" size={16} color={theme.colors.primaryDeep} />
+            <View style={{ flex: 1 }}>
+              <Text style={s.carName}>{car.name ?? 'Paired device'}</Text>
+              <Text style={s.carAddr}>{car.address}</Text>
+            </View>
+            <View style={s.carLinkedPill}>
+              <Text style={s.carLinkedPillText}>Linked</Text>
+            </View>
+          </View>
+          <View style={s.nativeBtnRow}>
+            <TouchableOpacity
+              style={[s.nativeBtn, s.nativeBtnGhost]}
+              onPress={handlePick}
+              disabled={busy}
+            >
+              <Text style={s.nativeBtnGhostText}>Change car</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.nativeBtn, s.nativeBtnGhost]}
+              onPress={handleForget}
+              disabled={busy}
+            >
+              <Text style={[s.nativeBtnGhostText, { color: theme.colors.danger }]}>Forget</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      ) : (
+        <TouchableOpacity style={s.nativeBtn} onPress={handlePick} disabled={busy}>
+          {busy ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <>
+              <Ionicons name="add-circle-outline" size={16} color="#fff" />
+              <Text style={s.nativeBtnText}>  Choose my car</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
 export function CarDetectionSetupScreen() {
   const navigation = useNavigation();
 
@@ -674,11 +890,13 @@ export function CarDetectionSetupScreen() {
           <>
             <Text style={s.sectionLabel}>Connect automation</Text>
 
-            <Collapsible title="Why two shortcuts?">
+            <Collapsible title="Why a shortcut, and what's the alert for?">
               <Text style={s.noteText}>
-                On iOS 17+ / 18, CarPlay automations don't show "Open URLs" directly. Steps 1–4
-                create a standalone shortcut; steps 5–7 wire it to CarPlay. This works on all
-                recent iOS versions.
+                On iOS 17+ / 18, CarPlay automations don't show "Open URLs" directly, so steps
+                1–5 build a standalone shortcut and steps 6–8 wire it to CarPlay.{'\n\n'}
+                The Show Alert action (step 2) is the recommended touch: the automation fires
+                silently, but the alert pops up so the app only opens when you tap OK — no more
+                barging in every time you connect. Prefer instant open? Skip step 2.
               </Text>
             </Collapsible>
 
@@ -719,26 +937,45 @@ export function CarDetectionSetupScreen() {
 
             <Collapsible title="Will this open the app every time?">
               <Text style={s.noteText}>
-                With the "Open URLs" method above, yes — opening the app is exactly what a
-                deep link does on iOS, just like on Android.{'\n\n'}
-                <Text style={{ fontWeight: '600' }}>By default it just notifies once open </Text>
-                — it won't drop you into a checklist. To open the app directly instead, turn
-                on "Open app on connect" in Settings: Pro opens your default checklist, free
-                opens the home screen.{'\n\n'}
-                <Text style={{ fontWeight: '600' }}>Want a banner without the app opening? </Text>
-                Use the "Quieter" steps below — but note iOS has a real limitation here that
-                Android doesn't (the notification's tap can't open CheckDrive).
+                Only if you skip the Show Alert step. A deep link always opens the app on
+                iOS — that part can't be changed — but the{' '}
+                <Text style={{ fontWeight: '600' }}>Show Alert action in step 2 </Text>
+                means the app only opens when you tap OK. Tap Cancel and nothing launches, so
+                it behaves like a dismissible prompt every time your car connects.{'\n\n'}
+                <Text style={{ fontWeight: '600' }}>Once it does open, by default it just
+                notifies </Text>— it won't drop you into a checklist. To jump straight into one
+                instead, turn on "Open app on connect" in Settings: Pro opens your default
+                checklist, free opens the home screen.{'\n\n'}
+                <Text style={{ fontWeight: '600' }}>Want zero prompts (instant open)? </Text>
+                Skip the Show Alert step when building the shortcut and it'll open the moment
+                CarPlay connects.
               </Text>
             </Collapsible>
 
-            <Collapsible title="Quieter: notification instead of opening">
+            <Collapsible title="Trigger on a location instead of CarPlay (geofencing)">
               <Text style={s.noteText}>
-                A Shortcut whose only action is "Show Notification" posts a banner without
-                opening CheckDrive. The catch: iOS won't let that banner deep-link, so
-                tapping it opens Shortcuts — it's a passive reminder, not a one-tap into your
-                checklist. (For a tappable notification, use the "Open URLs" method above and
-                leave "Open app on connect" off — CheckDrive opens briefly and posts its own
-                tappable notification.)
+                No CarPlay? You can run the same "Start CheckDrive" shortcut from a location
+                automation. In the Automation tab, choose{' '}
+                <Text style={{ fontWeight: '600' }}>Arrive </Text>or{' '}
+                <Text style={{ fontWeight: '600' }}>Leave </Text>as the trigger, pick the place
+                (e.g. Home or Work), then Run Shortcut → "Start CheckDrive" and turn off "Ask
+                Before Running".{'\n\n'}
+                <Text style={{ fontWeight: '600' }}>Heads-up on multi-stop: </Text>a location
+                automation only fires for the one place you picked, so it can't follow a
+                multi-stop trip that visits several different addresses. CarPlay (or starting
+                the checklist by hand) is the better trigger for multi-stop runs.
+              </Text>
+            </Collapsible>
+
+            <Collapsible title="Fully passive: banner only, no app (limited)">
+              <Text style={s.noteText}>
+                <Text style={{ fontWeight: '600' }}>The Show Alert flow above is the better
+                way </Text>to get a dismissible prompt, because its OK button actually opens
+                your checklist. This Show Notification path is only for a fully passive banner:
+                it posts a reminder without opening CheckDrive, but iOS won't let that banner
+                deep-link, so tapping it opens the Shortcuts app — not your checklist. Use it
+                only if you truly want a no-tap reminder and don't mind that the tap goes
+                nowhere useful.
               </Text>
               <StepList steps={IOS_NOTIFY_STEPS} />
             </Collapsible>
@@ -752,6 +989,12 @@ export function CarDetectionSetupScreen() {
             ────────────────────────────────────────────────────────────── */}
         {tab === 'android' && (
           <>
+            {/* Recommended path: native CDM detection, no third-party app.
+                Renders itself conditionally based on device support. */}
+            <NativeDetectSection />
+
+            <Text style={s.sectionLabel}>Or set it up manually</Text>
+
             <Collapsible title="Do I need to install anything?">
               <Text style={s.noteText}>
                 <Text style={{ fontWeight: '600' }}>You don't have to do any of this. </Text>
@@ -948,6 +1191,70 @@ const s = StyleSheet.create({
     alignItems: 'flex-start',
   },
   noteText: { flex: 1, fontSize: 13, color: theme.colors.primaryDeep, lineHeight: 18 },
+
+  // Native-detection card — the recommended Android path. Slightly stronger
+  // border/tint than a plain card so it reads as the primary call to action.
+  nativeCard: {
+    backgroundColor: theme.colors.primaryLight,
+    borderWidth: 0.5,
+    borderColor: '#5DCAA5',
+    borderRadius: theme.radius.lg,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  nativeBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  nativeBadge: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: theme.colors.primaryDeep,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  nativeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.radius.md,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 4,
+  },
+  nativeBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  nativeBtnRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  nativeBtnGhost: {
+    flex: 1,
+    backgroundColor: theme.colors.bgPrimary,
+    borderWidth: 0.5,
+    borderColor: theme.colors.borderSecondary,
+  },
+  nativeBtnGhostText: { color: theme.colors.textPrimary, fontSize: 13, fontWeight: '500' },
+  carRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: theme.colors.bgPrimary,
+    borderRadius: theme.radius.md,
+    borderWidth: 0.5,
+    borderColor: theme.colors.borderTertiary,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  carName: { fontSize: 14, fontWeight: '500', color: theme.colors.textPrimary },
+  carAddr: {
+    fontSize: 12,
+    color: theme.colors.textTertiary,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  carLinkedPill: {
+    backgroundColor: theme.colors.primaryLight,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  carLinkedPillText: { fontSize: 11, fontWeight: '600', color: theme.colors.primaryDeep },
 
   // Collapsible variant of noteCard: same color treatment, column layout so a
   // tappable header sits above an optional body. Default state is collapsed so

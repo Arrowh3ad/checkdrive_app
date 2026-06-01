@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android", "web"],
+  "apple": {
+    "modules": ["CarBluetoothModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.carbluetooth.CarBluetoothModule"]
+  }
+}

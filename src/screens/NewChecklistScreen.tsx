@@ -13,7 +13,7 @@
 //   2. Appearance — icon picker (12 Ionicons presets), Color swatches (8 themes),
 //      and optional custom photo via expo-image-picker
 //   3. Trip mode — multi-stop toggle (Pro-gated)
-//   4. Trigger settings — auto-detect, geofence (Pro), end-of-trip tab
+//   4. Trigger settings — auto-detect, end-of-trip tab, back-seat reminder
 //   5. Items / Stops — changes layout based on isMultiStop:
 //        • Regular: two ItemsCard components (start items, end items)
 //        • Multi-stop: a stop editor with per-stop name + item inputs
@@ -111,8 +111,9 @@ export function NewChecklistScreen() {
 
   const [name, setName] = useState(editingChecklist?.name ?? '');
   const [autoDetect, setAutoDetect] = useState(editingChecklist?.autoDetect ?? true);
-  const [geofence, setGeofence] = useState(editingChecklist?.geofenceEnabled ?? false);
   const [endOfTrip, setEndOfTrip] = useState(editingChecklist?.endOfTripEnabled ?? true);
+  const [backSeat, setBackSeat] = useState(editingChecklist?.backSeatReminder ?? false);
+  const [backSeatMsg, setBackSeatMsg] = useState(editingChecklist?.backSeatMessage ?? '');
   const [isMultiStop, setIsMultiStop] = useState(editingChecklist?.isMultiStop ?? false);
 
   // Appearance state — icon, background color, and optional custom photo.
@@ -313,9 +314,14 @@ export function NewChecklistScreen() {
         : [],
       isMultiStop,
       autoDetect,
-      geofenceEnabled: geofence,
+      // geofenceEnabled is deprecated (never implemented; removed from Pro) —
+      // always false now, kept on the type to avoid a data migration.
+      geofenceEnabled: false,
       // Multi-stop trips don't have a separate end-of-trip tab.
       endOfTripEnabled: isMultiStop ? false : endOfTrip,
+      backSeatReminder: backSeat,
+      // Persist the custom message only when the reminder is on and non-empty.
+      backSeatMessage: backSeat && backSeatMsg.trim().length > 0 ? backSeatMsg.trim() : undefined,
     };
 
     if (isEditing && editingChecklist) {
@@ -488,19 +494,6 @@ export function NewChecklistScreen() {
               value={autoDetect}
               onToggle={setAutoDetect}
             />
-            <ToggleRow
-              title={`Geofence trigger${!settings.isPro ? ' (Pro)' : ''}`}
-              subtitle="Trigger when leaving home location"
-              value={geofence}
-              onToggle={(v) => {
-                if (!settings.isPro) {
-                  Alert.alert('Pro feature', 'Upgrade to Pro to use geofence triggers.');
-                  return;
-                }
-                setGeofence(v);
-              }}
-              disabled={!settings.isPro}
-            />
             {/* End-of-trip toggle is hidden for multi-stop mode — they don't have separate tabs */}
             {!isMultiStop && (
               <ToggleRow
@@ -508,6 +501,23 @@ export function NewChecklistScreen() {
                 subtitle="Separate checklist on arrival"
                 value={endOfTrip}
                 onToggle={setEndOfTrip}
+              />
+            )}
+            <ToggleRow
+              title="Back-seat reminder"
+              subtitle="Urgent alert to check the back seat when you park"
+              value={backSeat}
+              onToggle={setBackSeat}
+            />
+            {backSeat && (
+              <TextInput
+                style={s.textInput}
+                placeholder="Check the back seat!"
+                placeholderTextColor={theme.colors.textTertiary}
+                value={backSeatMsg}
+                onChangeText={setBackSeatMsg}
+                returnKeyType="done"
+                maxLength={80}
               />
             )}
           </View>
@@ -605,7 +615,7 @@ export function NewChecklistScreen() {
             <View style={s.proBanner}>
               <View style={{ flex: 1 }}>
                 <Text style={s.proTitle}>
-                  <Ionicons name="star" size={13} /> Multi-stop, geofencing & more
+                  <Ionicons name="star" size={13} /> Multi-stop, parking extras & more
                 </Text>
                 <Text style={s.proSub}>Unlock with Pro — $2.99/mo</Text>
               </View>

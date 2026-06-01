@@ -24,6 +24,8 @@ import {
   Switch,
   StyleSheet,
   Alert,
+  Platform,
+  PermissionsAndroid,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -44,6 +46,31 @@ export function SettingsScreen() {
   const initials = user?.email
     ? user.email.split('@')[0].slice(0, 2).toUpperCase()
     : null;
+
+  // Enabling the parking finder needs location permission (foreground is
+  // enough — capture happens via a foreground service). Android-only.
+  async function handleParkingToggle(v: boolean) {
+    if (!v) {
+      updateSettings({ parkingFinderEnabled: false });
+      return;
+    }
+    try {
+      const res = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+      );
+      if (res === PermissionsAndroid.RESULTS.GRANTED) {
+        updateSettings({ parkingFinderEnabled: true });
+      } else {
+        Alert.alert(
+          'Location needed',
+          'Parking finder needs location permission to save where you parked. ' +
+            'You can enable it in Settings → Apps → CheckDrive → Permissions.'
+        );
+      }
+    } catch {
+      Alert.alert('Something went wrong', 'Could not request location permission.');
+    }
+  }
 
   function handleSignOut() {
     Alert.alert(
@@ -123,6 +150,12 @@ export function SettingsScreen() {
             </View>
           </View>
 
+          {/* Honest expectation-setting: data + Pro are local to this device. */}
+          <Text style={s.syncNote}>
+            Checklists, settings, and Pro are stored on this device — cross-device sync isn't
+            available yet.
+          </Text>
+
           {/* Guest CTA: prompts sign-in. No account is required to use the app —
               this is just where users go to enable Pro / cross-device sync. */}
           {!user && (
@@ -163,7 +196,7 @@ export function SettingsScreen() {
               <Text style={s.proTitle}>
                 <MaterialCommunityIcons name="crown" size={13} /> Upgrade to Pro
               </Text>
-              <Text style={s.proSub}>Unlimited lists · No ads · Geofencing · Multi-stop</Text>
+              <Text style={s.proSub}>Unlimited lists · No ads · Multi-stop · Parking extras</Text>
             </View>
             <TouchableOpacity
               style={s.proBtn}
@@ -218,6 +251,17 @@ export function SettingsScreen() {
             value={settings.openChecklistOnConnect}
             onToggle={(v) => updateSettings({ openChecklistOnConnect: v })}
           />
+          {Platform.OS === 'android' && (
+            <>
+              <View style={s.divider} />
+              <ToggleRow
+                title="Parking finder"
+                subtitle="Save where you parked when the car disconnects"
+                value={settings.parkingFinderEnabled}
+                onToggle={handleParkingToggle}
+              />
+            </>
+          )}
           <View style={s.divider} />
           <ToggleRow
             title="Trip streaks"
@@ -226,6 +270,7 @@ export function SettingsScreen() {
             onToggle={(v) => updateSettings({ tripStreaks: v })}
           />
         </View>
+
 
         {/* ── Car detection setup ──────────────────────────────────────────── */}
         <TouchableOpacity
@@ -335,6 +380,12 @@ const s = StyleSheet.create({
   avatarText: { fontSize: 14, fontWeight: '500', color: theme.colors.primaryDeep },
   accountName: { fontSize: 15, fontWeight: '500', color: theme.colors.textPrimary },
   accountMeta: { fontSize: 12, color: theme.colors.textSecondary },
+  syncNote: {
+    fontSize: 12,
+    color: theme.colors.textTertiary,
+    lineHeight: 16,
+    marginTop: 2,
+  },
 
   proBanner: {
     backgroundColor: theme.colors.purpleLight,

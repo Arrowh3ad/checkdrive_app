@@ -43,6 +43,7 @@ import { SettingsScreen } from '../screens/SettingsScreen';
 import { ProScreen } from '../screens/ProScreen';
 import { CarDetectionSetupScreen } from '../screens/CarDetectionSetupScreen';
 import { TripHistoryScreen } from '../screens/TripHistoryScreen';
+import { ParkingScreen } from '../screens/ParkingScreen';
 import { SignInScreen } from '../screens/auth/SignInScreen';
 import { SignUpScreen } from '../screens/auth/SignUpScreen';
 import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen';
@@ -74,6 +75,7 @@ const linking = {
       // `trigger` is a special path with no corresponding screen — it's caught
       // by useCarDetection's Linking listener before navigation happens.
       CarDetectionSetup: 'trigger',
+      Parking: 'parking',
     },
   },
 };
@@ -102,6 +104,7 @@ export function AppNavigator({ onReady }: { onReady?: () => void }) {
         <Stack.Screen name="Pro" component={ProScreen} />
         <Stack.Screen name="CarDetectionSetup" component={CarDetectionSetupScreen} />
         <Stack.Screen name="TripHistory" component={TripHistoryScreen} />
+        <Stack.Screen name="Parking" component={ParkingScreen} />
         {/* Auth screens. SignIn ↔ SignUp swap via navigation.replace so only
             one ever sits above the caller; ForgotPassword pushes onto SignIn. */}
         <Stack.Screen name="SignIn" component={SignInScreen} />

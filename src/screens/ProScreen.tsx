@@ -42,8 +42,8 @@ const FEATURES = [
     subtitle: 'Per-stop checklists for complex routes',
   },
   {
-    title: 'Geofence triggers',
-    subtitle: 'Auto-launch when leaving home',
+    title: 'Parking finder extras',
+    subtitle: 'Photos, notes & history for your saved spots',
   },
   {
     title: 'No ads',

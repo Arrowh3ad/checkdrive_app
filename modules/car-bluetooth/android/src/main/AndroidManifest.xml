@@ -1,0 +1,48 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+  <!-- CDM picker is a system feature; not required so the app still installs on
+       devices that lack it (we gate at runtime via isSupported()). -->
+  <uses-feature
+    android:name="android.software.companion_device_setup"
+    android:required="false" />
+
+  <!-- Needed to receive ACL connect/disconnect broadcasts and to read a device
+       name (API 31+). The picker itself needs no location permission. -->
+  <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+  <!-- Companion-association exemptions: let the app run / start from background
+       when its associated device is around. -->
+  <uses-permission android:name="android.permission.REQUEST_COMPANION_RUN_IN_BACKGROUND" />
+  <uses-permission android:name="android.permission.REQUEST_COMPANION_USE_DATA_IN_BACKGROUND" />
+  <uses-permission android:name="android.permission.REQUEST_COMPANION_START_FOREGROUND_SERVICES_FROM_BACKGROUND" />
+
+  <!-- Posting the fallback notification when the app is dead (API 33+). -->
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+  <!-- Parking finder: capture a location fix on disconnect via a brief
+       foreground service of type "location" (avoids ACCESS_BACKGROUND_LOCATION). -->
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+
+  <application>
+    <!-- Wakes the app on car Bluetooth connect/disconnect. exported=true is
+         required to receive these system broadcasts via a manifest receiver. -->
+    <receiver
+      android:name="expo.modules.carbluetooth.CarAclReceiver"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="android.bluetooth.device.action.ACL_CONNECTED" />
+        <action android:name="android.bluetooth.device.action.ACL_DISCONNECTED" />
+      </intent-filter>
+    </receiver>
+
+    <!-- Brief foreground service that grabs one location fix on disconnect. -->
+    <service
+      android:name="expo.modules.carbluetooth.CarParkingService"
+      android:exported="false"
+      android:foregroundServiceType="location" />
+  </application>
+
+</manifest>

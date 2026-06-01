@@ -170,6 +170,12 @@ export function SignInScreen() {
               <Text style={s.switchLink}>Sign up</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Sets expectations: signing in is for account/Pro, not data sync yet. */}
+          <Text style={s.deviceNote}>
+            Your checklists, settings, and Pro status are stored on this device.
+            Cross-device sync isn't available yet.
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -257,4 +263,13 @@ const s = StyleSheet.create({
   switchRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 24 },
   switchText: { fontSize: 14, color: theme.colors.textSecondary },
   switchLink: { fontSize: 14, color: theme.colors.primary, fontWeight: '600' },
+
+  deviceNote: {
+    fontSize: 12,
+    color: theme.colors.textTertiary,
+    textAlign: 'center',
+    lineHeight: 17,
+    marginTop: 24,
+    paddingHorizontal: 8,
+  },
 });

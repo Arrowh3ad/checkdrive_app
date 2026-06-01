@@ -48,6 +48,16 @@ import { formatTimeAgo } from '../utils/time';
 // type-safe: TypeScript knows which screens are reachable from here.
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
+// Compact relative time for the parking card.
+function parkAgo(iso: string): string {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hr${hrs > 1 ? 's' : ''} ago`;
+  return `${Math.floor(hrs / 24)} day${Math.floor(hrs / 24) > 1 ? 's' : ''} ago`;
+}
+
 export function HomeScreen() {
   const navigation = useNavigation<Nav>();
   const {
@@ -60,6 +70,7 @@ export function HomeScreen() {
     duplicateChecklist,
     activeRuns,
     clearActiveRun,
+    parking,
   } = useAppStore();
 
   // Mounting useCarDetection here registers the deep-link listener for the
@@ -281,6 +292,34 @@ export function HomeScreen() {
             <Ionicons name="information-circle-outline" size={13} /> Set up auto-detection →
           </Text>
         </TouchableOpacity>
+
+        {/* ── Parking card ────────────────────────────────────────────────── */}
+        {/* Always shown while the finder is on, so "Where did I park?" lives on
+            the main screen. Reflects the latest spot, or invites a first save. */}
+        {settings.parkingFinderEnabled && (
+          <TouchableOpacity
+            style={s.card}
+            onPress={() => navigation.navigate('Parking')}
+            activeOpacity={0.7}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={s.resumeIcon}>
+                <Ionicons name="location" size={15} color={theme.colors.primaryDeep} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.clName} numberOfLines={1}>
+                  {parking[0] ? 'You parked here' : 'Where did I park?'}
+                </Text>
+                <Text style={s.clMeta}>
+                  {parking[0]
+                    ? `${parkAgo(parking[0].savedAt)} · tap to open in Maps`
+                    : 'Saves automatically when you park · tap to view'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={theme.colors.textTertiary} />
+            </View>
+          </TouchableOpacity>
+        )}
 
         {/* ── Resume banner ───────────────────────────────────────────────── */}
         {/* In-progress runs the user can jump back into. Tapping a row reopens

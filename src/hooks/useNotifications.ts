@@ -118,6 +118,30 @@ export async function sendTripEndNotification(
   });
 }
 
+// Fires a distinct, high-urgency reminder to check the back seat when the car
+// disconnects — the safety variant of the arrival notification. Carries the
+// same data payload so a tap still opens the relevant checklist.
+export async function sendBackSeatNotification(
+  message?: string,
+  checklistId?: string,
+): Promise<void> {
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: "Don't forget the back seat!",
+      body: message && message.trim().length > 0
+        ? message
+        : 'Check the back seat before you walk away.',
+      data: {
+        trigger: 'car-disconnect',
+        checklistId: checklistId ?? null,
+        isMultiStop: false,
+      },
+      sound: true,
+    },
+    trigger: null,
+  });
+}
+
 // Thin React hook that requests notification permissions on mount.
 // Called once from AppRoot in App.tsx; safe to call multiple times.
 export function useNotifications() {

@@ -41,8 +41,13 @@ import * as Linking from 'expo-linking';
 import * as TaskManager from 'expo-task-manager';
 import * as BackgroundFetch from 'expo-background-fetch';
 import { useAppStore } from '../store/useAppStore';
-import { sendTripStartNotification, sendTripEndNotification } from './useNotifications';
+import {
+  sendTripStartNotification,
+  sendTripEndNotification,
+  sendBackSeatNotification,
+} from './useNotifications';
 import { navigationRef } from '../navigation/navigationRef';
+import * as CarBluetooth from '../../modules/car-bluetooth';
 
 // A named constant for the background-fetch task so the same string is used in
 // both `defineTask` (module level) and `registerTaskAsync` (hook level).
@@ -72,9 +77,19 @@ export async function simulateVehicleConnect(): Promise<void> {
     settings,
     activeRuns,
     advanceActiveRunStop,
+    setLastTripChecklist,
   } = useAppStore.getState();
 
   setConnectedToVehicle(true);
+
+  // Mark the checklist this trip is "running" so a later disconnect can fire the
+  // right back-seat reminder without depending on a Pro default. Prefer the
+  // explicit default, then the first auto-detect checklist, then anything.
+  const tripChecklist =
+    checklists.find((cl) => cl.id === settings.defaultChecklistId) ??
+    checklists.find((cl) => cl.autoDetect) ??
+    checklists[0];
+  if (tripChecklist) setLastTripChecklist(tripChecklist.id);
 
   // MULTI-STOP INTERCEPT
   // If a multi-stop trip is already in progress when CarPlay fires again (e.g.
@@ -144,21 +159,46 @@ export async function simulateVehicleDisconnect(): Promise<void> {
     setConnectedToVehicle,
     checklists,
     settings,
+    lastTripChecklistId,
   } = useAppStore.getState();
 
   setConnectedToVehicle(false);
 
   if (!settings.pushNotifications) return;
 
-  // Only send a reminder if there's a default checklist with end-of-trip
-  // items — otherwise the notification has no useful destination.
-  const defaultCl = checklists.find((cl) => cl.id === settings.defaultChecklistId);
-  if (defaultCl?.endOfTripEnabled && defaultCl.endItems.length > 0) {
-    await sendTripEndNotification(defaultCl.name, defaultCl.id);
-  } else if (!defaultCl) {
-    // No default set — send a generic reminder that lands on HomeScreen.
+  // Use the checklist for the trip that just ended (set on connect / run start),
+  // falling back to the default only if we have no trip context at all.
+  const tripCl =
+    checklists.find((cl) => cl.id === lastTripChecklistId) ??
+    checklists.find((cl) => cl.id === settings.defaultChecklistId);
+
+  // BACK-SEAT REMINDER takes priority — it's the safety alert. Fires for the
+  // active trip's checklist, no Pro default required. (When the app is dead, the
+  // native module posts the equivalent notification using the synced config.)
+  if (tripCl?.backSeatReminder) {
+    await sendBackSeatNotification(tripCl.backSeatMessage, tripCl.id);
+    return;
+  }
+
+  // Otherwise only send a reminder if the trip checklist has end-of-trip items —
+  // otherwise the notification has no useful destination.
+  if (tripCl?.endOfTripEnabled && tripCl.endItems.length > 0) {
+    await sendTripEndNotification(tripCl.name, tripCl.id);
+  } else if (!tripCl) {
+    // No trip context — send a generic reminder that lands on HomeScreen.
     await sendTripEndNotification();
   }
+}
+
+// Adds a captured parking fix to the store. Shared by the live onParkingSaved
+// event and the app-launch sync (getLastParking). The store dedupes fixes
+// captured within 60s of each other, so calling this from both is safe.
+export function syncParkingFix(fix: { lat: number; lng: number; savedAtMs: number }): void {
+  useAppStore.getState().addParkingRecord({
+    lat: fix.lat,
+    lng: fix.lng,
+    savedAt: new Date(fix.savedAtMs).toISOString(),
+  });
 }
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
@@ -200,6 +240,54 @@ export function useCarDetection() {
     // Clean up the listener when the component that uses this hook unmounts.
     return () => sub.remove();
   }, [handleVehicleConnect, handleVehicleDisconnect]);
+
+  // ── Native car-Bluetooth listener (Android) ───────────────────────────────
+  // The car-bluetooth module fires these events when the user's associated car
+  // connects/disconnects while the app is running. (When the app is dead, the
+  // native receiver posts a deep-link notification instead, which routes back
+  // through the Linking handler above on launch.) On iOS/web addConnectionListener
+  // is a no-op, so this effect is harmless there.
+  useEffect(() => {
+    const unsubscribe = CarBluetooth.addConnectionListener(
+      () => { void handleVehicleConnect(); },
+      () => { void handleVehicleDisconnect(); }
+    );
+    return unsubscribe;
+  }, [handleVehicleConnect, handleVehicleDisconnect]);
+
+  // ── Parking capture (Android) ─────────────────────────────────────────────
+  // Two paths feed the parking store: the live onParkingSaved event (app
+  // running when the spot is captured) and a one-shot getLastParking() sync on
+  // mount (covers a spot captured while the app was killed). The store dedupes,
+  // so overlap is harmless. Both no-op when native detection is unavailable.
+  useEffect(() => {
+    const unsubscribe = CarBluetooth.addParkingListener((fix) => syncParkingFix(fix));
+    CarBluetooth.getLastParking().then((fix) => {
+      if (fix) syncParkingFix(fix);
+    });
+    return unsubscribe;
+  }, []);
+
+  // ── Native config sync (Android) ──────────────────────────────────────────
+  // Push the parking + back-seat settings down to SharedPreferences so the
+  // native receiver/service behave correctly even when JS isn't running. The
+  // back-seat flag mirrors the disconnect logic above: it's driven by the
+  // default checklist's setting. Re-runs whenever those inputs change.
+  const settings = useAppStore((s) => s.settings);
+  const checklists = useAppStore((s) => s.checklists);
+  const lastTripChecklistId = useAppStore((s) => s.lastTripChecklistId);
+  // Back-seat config mirrors the disconnect logic: keyed off the current trip's
+  // checklist so the killed-app native path stays consistent with the live one.
+  const tripForBackSeat = checklists.find((c) => c.id === lastTripChecklistId);
+  const backSeatEnabled = tripForBackSeat?.backSeatReminder ?? false;
+  const backSeatMessage = tripForBackSeat?.backSeatMessage ?? null;
+  useEffect(() => {
+    void CarBluetooth.configure({
+      parkingEnabled: settings.parkingFinderEnabled,
+      backSeatEnabled,
+      backSeatMessage,
+    });
+  }, [settings.parkingFinderEnabled, backSeatEnabled, backSeatMessage]);
 
   // ── Background fetch registration ─────────────────────────────────────────
   // Registers a background-fetch slot that iOS/Android can wake the app into
