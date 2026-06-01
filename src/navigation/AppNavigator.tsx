@@ -21,7 +21,6 @@
 //   checkdrive://multistop/cl-xyz   → MultiStopScreen for checklist cl-xyz
 //   checkdrive://trigger            → CarDetection hook fires (Shortcuts entry point)
 //   checkdrive://settings           → SettingsScreen
-//   checkdrive://pro                → ProScreen
 //
 // NAVIGATION REF
 // `navigationRef` is exported so that code outside the React tree (App.tsx's
@@ -40,7 +39,6 @@ import { ChecklistRunScreen } from '../screens/ChecklistRunScreen';
 import { MultiStopScreen } from '../screens/MultiStopScreen';
 import { NewChecklistScreen } from '../screens/NewChecklistScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
-import { ProScreen } from '../screens/ProScreen';
 import { CarDetectionSetupScreen } from '../screens/CarDetectionSetupScreen';
 import { TripHistoryScreen } from '../screens/TripHistoryScreen';
 
