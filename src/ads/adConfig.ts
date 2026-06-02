@@ -18,8 +18,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Platform } from 'react-native';
-import { TestIds } from 'react-native-google-mobile-ads';
 import { useAppStore } from '../store/useAppStore';
+import { Admob, adsNativeAvailable } from './admob';
 
 // Real (production) unit IDs — REPLACE with the IDs from your AdMob console.
 // Format: 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX' (note the slash).
@@ -29,18 +29,22 @@ const REAL_UNITS = {
 };
 
 // In dev we force test IDs; in production we use the real ones. `TestIds.*`
-// are Google's public sandbox units that always return a test ad.
+// are Google's public sandbox units that always return a test ad. Falls back to
+// the real IDs if the library isn't loaded (the values are unused in that case).
 export const AD_UNITS = {
-  banner: __DEV__ ? TestIds.BANNER : REAL_UNITS.banner,
-  interstitial: __DEV__ ? TestIds.INTERSTITIAL : REAL_UNITS.interstitial,
+  banner: __DEV__ ? (Admob?.TestIds.BANNER ?? REAL_UNITS.banner) : REAL_UNITS.banner,
+  interstitial: __DEV__
+    ? (Admob?.TestIds.INTERSTITIAL ?? REAL_UNITS.interstitial)
+    : REAL_UNITS.interstitial,
 };
 
 // Whether ads may show right now. Reads live store state, so call it at render
 // time / right before requesting an interstitial.
 export function adsEnabled(): boolean {
   if (Platform.OS !== 'android') return false; // Android-first
+  if (!adsNativeAvailable) return false;       // not in Expo Go / web
   const { settings, connectedToVehicle } = useAppStore.getState();
-  if (settings.isPro) return false;            // future no-ads tier
+  if (settings.isPro) return false;            // no-ads (Pro) tier
   if (connectedToVehicle) return false;        // never mid-drive
   return true;
 }

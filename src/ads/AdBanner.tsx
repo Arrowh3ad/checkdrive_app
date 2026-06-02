@@ -12,7 +12,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
+import { Admob } from './admob';
 import { AD_UNITS, adsEnabled } from './adConfig';
 import { useAppStore } from '../store/useAppStore';
 
@@ -28,7 +28,12 @@ export function AdBanner() {
     setFailed(false);
   }, [isPro, connected]);
 
-  if (!adsEnabled() || failed) return null;
+  // `Admob` is null when the native module isn't present (Expo Go) — bail before
+  // touching BannerAd. adsEnabled() also already covers this, but guarding here
+  // keeps TypeScript happy about the possibly-null library.
+  if (!Admob || !adsEnabled() || failed) return null;
+
+  const { BannerAd, BannerAdSize } = Admob;
 
   return (
     <View style={s.wrap}>

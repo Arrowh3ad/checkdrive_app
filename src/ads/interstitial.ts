@@ -13,33 +13,38 @@
 // interstitial on connect, only at trip/checklist completion via the caller.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { InterstitialAd, AdEventType } from 'react-native-google-mobile-ads';
+import { Admob } from './admob';
 import { AD_UNITS, adsEnabled } from './adConfig';
 
 const MIN_GAP_MS = 3 * 60 * 1000; // at most one interstitial per 3 minutes
 const SHOW_EVERY_N = 3;           // ...and at most once per 3 eligible breaks
 
-let interstitial: InterstitialAd | null = null;
+// `any` because the concrete InterstitialAd type can't be safely imported when
+// the native module is absent (Expo Go); the guard in admob.ts is the real check.
+let interstitial: any = null;
 let loaded = false;
 let lastShownAt = 0;
 let breakCount = 0;
 
-// Build + start loading a fresh interstitial. Safe to call repeatedly.
+// Build + start loading a fresh interstitial. Safe to call repeatedly. No-ops
+// when the native module is absent (Expo Go / iOS).
 function preload() {
+  if (!Admob) return;
+  const { InterstitialAd, AdEventType } = Admob;
   try {
     interstitial = InterstitialAd.createForAdRequest(AD_UNITS.interstitial);
     loaded = false;
-    interstitial.addAdEventListener(AdEventType.LOADED, () => {
+    interstitial!.addAdEventListener(AdEventType.LOADED, () => {
       loaded = true;
     });
-    interstitial.addAdEventListener(AdEventType.CLOSED, () => {
+    interstitial!.addAdEventListener(AdEventType.CLOSED, () => {
       // Reload for next time once the user dismisses it.
       preload();
     });
-    interstitial.addAdEventListener(AdEventType.ERROR, () => {
+    interstitial!.addAdEventListener(AdEventType.ERROR, () => {
       loaded = false;
     });
-    interstitial.load();
+    interstitial!.load();
   } catch {
     interstitial = null;
     loaded = false;
@@ -48,7 +53,7 @@ function preload() {
 
 // Call once at app start (after init) to warm the first ad.
 export function initInterstitial() {
-  if (!interstitial) preload();
+  if (Admob && !interstitial) preload();
 }
 
 // Show an interstitial if all gates pass; otherwise no-op. Returns whether one

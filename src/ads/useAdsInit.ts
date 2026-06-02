@@ -12,15 +12,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useEffect } from 'react';
-import { Platform } from 'react-native';
-import mobileAds, {
-  AdsConsent,
-  AdsConsentStatus,
-} from 'react-native-google-mobile-ads';
+import { Admob, adsNativeAvailable } from './admob';
 
 export function useAdsInit(): void {
   useEffect(() => {
-    if (Platform.OS !== 'android') return;
+    // No native module (Expo Go / iOS / web) → nothing to initialize.
+    if (!adsNativeAvailable || !Admob) return;
+    const { default: mobileAds, AdsConsent, AdsConsentStatus } = Admob;
 
     let cancelled = false;
     (async () => {
@@ -44,7 +42,7 @@ export function useAdsInit(): void {
         // 2. Start the SDK. Safe to call once consent is resolved.
         if (!cancelled) await mobileAds().initialize();
       } catch {
-        /* SDK init failed (e.g. module absent in Expo Go) — ignore */
+        /* SDK init failed — ignore */
       }
     })();
 
