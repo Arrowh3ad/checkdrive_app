@@ -41,6 +41,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAppStore } from '../store/useAppStore';
 import { useCarDetection } from '../hooks/useCarDetection';
 import { AdBanner } from '../ads/AdBanner';
+import { FREE_CHECKLIST_LIMIT } from '../constants';
 import { theme } from '../theme';
 import { Checklist, RootStackParamList, ActiveRun } from '../types';
 import { formatTimeAgo } from '../utils/time';
@@ -92,8 +93,21 @@ export function HomeScreen() {
     navigation.navigate(isMultiStop ? 'MultiStop' : 'ChecklistRun', { checklistId: id });
   }
 
-  // Opens the new-checklist editor. (MVP: no plan limit — all features free.)
+  // Opens the new-checklist editor, enforcing the free-tier cap. Free users get
+  // FREE_CHECKLIST_LIMIT lists; beyond that we route to the paywall. Pro is
+  // unlimited. Existing lists are never touched — this only gates *creation*.
   function onNewChecklist() {
+    if (!settings.isPro && checklists.length >= FREE_CHECKLIST_LIMIT) {
+      Alert.alert(
+        'Checklist limit reached',
+        `The free plan includes up to ${FREE_CHECKLIST_LIMIT} checklists. Unlock CheckDrive Pro for unlimited checklists and no ads.`,
+        [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'See Pro', onPress: () => navigation.navigate('Paywall') },
+        ]
+      );
+      return;
+    }
     navigation.navigate('NewChecklist');
   }
 

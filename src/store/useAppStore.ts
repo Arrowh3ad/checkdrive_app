@@ -261,10 +261,10 @@ export const useAppStore = create<AppStore>()(
         pushNotifications: true,
         bluetoothAutoDetect: true,
         tripStreaks: false,
-        // MVP: no paywall — everything is free. `isPro` stays in the model so the
-        // existing feature gates simply pass; real Pro + IAP returns in a later
-        // update (see the v0-full-prototype commit for the monetization code).
-        isPro: true,
+        // Owned by the purchases layer now: initPurchases() writes this from the
+        // live RevenueCat entitlement on launch. Defaults false (free tier);
+        // flips true when the user owns the lifetime Pro unlock.
+        isPro: false,
         currentStreak: 5,
         totalTrips: 47,
         defaultChecklistId: null,
@@ -402,19 +402,14 @@ export const useAppStore = create<AppStore>()(
       setLastTripChecklist: (id) => set({ lastTripChecklistId: id }),
 
       // ── Pro downgrade ────────────────────────────────────────────────────
+      // Only flips the flag — it never deletes checklists or runs. We never
+      // destroy data a user created (the free cap only gates *new* creation),
+      // so a lapse/refund just re-enables ads and the creation limit. Currently
+      // unused in-app (lifetime Pro doesn't lapse); kept for future subscription
+      // support and exercised by tests.
       downgradeFromPro: () =>
         set((state) => ({
-          settings: {
-            ...state.settings,
-            isPro: false,
-            // Always clear the default on downgrade — it was a Pro-only feature.
-            defaultChecklistId: null,
-          },
-          // Truncate to 3 checklists (free plan limit).
-          checklists: state.checklists.slice(0, 3),
-          // Cancel any in-progress runs (multi-stop is Pro-only, and the kept
-          // checklists may differ from what a run pointed at).
-          activeRuns: [],
+          settings: { ...state.settings, isPro: false },
         })),
     }),
 

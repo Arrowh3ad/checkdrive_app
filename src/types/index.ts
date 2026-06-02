@@ -170,4 +170,5 @@ export type RootStackParamList = {
   Settings: undefined;
   CarDetectionSetup: undefined;
   TripHistory: undefined; // full trip history with timestamps + multi-select delete
+  Paywall: undefined; // CheckDrive Pro — lifetime unlock (no ads + unlimited lists)
 };

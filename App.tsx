@@ -35,6 +35,7 @@ import { AppNavigator, navigationRef } from './src/navigation/AppNavigator';
 import { useNotifications } from './src/hooks/useNotifications';
 import { useAdsInit } from './src/ads/useAdsInit';
 import { initInterstitial } from './src/ads/interstitial';
+import { initPurchases } from './src/purchases/purchases';
 
 // Configure how expo-notifications displays alerts while the app is in the
 // foreground. Without this handler, iOS silently drops foreground notifications.
@@ -64,6 +65,12 @@ function AppRoot() {
   useAdsInit();
   useEffect(() => {
     initInterstitial();
+  }, []);
+
+  // Configure RevenueCat once and sync the Pro entitlement → store.isPro.
+  // No-ops in Expo Go / without an API key, so the app runs as free there.
+  useEffect(() => {
+    void initPurchases();
   }, []);
 
   // Listen for notification taps. The `data` payload embedded by

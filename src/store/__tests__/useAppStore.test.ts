@@ -35,7 +35,7 @@ function patchSettings(patch: Partial<ReturnType<typeof useAppStore.getState>['s
 }
 
 describe('downgradeFromPro', () => {
-  it('trims checklists to 3 and clears Pro-only state', () => {
+  it('clears isPro but never deletes the user\'s checklists', () => {
     useAppStore.setState({
       checklists: [1, 2, 3, 4, 5].map((n) => makeChecklist({ id: `c${n}` })),
     });
@@ -44,9 +44,10 @@ describe('downgradeFromPro', () => {
     useAppStore.getState().downgradeFromPro();
 
     const s = useAppStore.getState();
-    expect(s.checklists).toHaveLength(3);
+    // Data is preserved — only the entitlement flag flips. (We never destroy
+    // checklists; the free cap only gates creating *new* ones.)
+    expect(s.checklists).toHaveLength(5);
     expect(s.settings.isPro).toBe(false);
-    expect(s.settings.defaultChecklistId).toBeNull();
   });
 });
 

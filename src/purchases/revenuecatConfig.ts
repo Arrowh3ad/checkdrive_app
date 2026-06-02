@@ -1,0 +1,29 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// purchases/revenuecatConfig.ts  —  RevenueCat keys + identifiers (one place).
+//
+// Replace REVENUECAT_ANDROID_KEY with your project's PUBLIC Android API key from
+// the RevenueCat dashboard (Project settings → API keys → "Public app-specific"
+// for the Android app). It's a *public* key — safe to ship in the app binary.
+//
+// ENTITLEMENT_ID must match the entitlement identifier you create in RevenueCat
+// (Entitlements → e.g. "pro"). When the user owns the lifetime product, this
+// entitlement becomes active, which is what flips the app to Pro.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { Platform } from 'react-native';
+
+// TODO: paste your real public Android API key (starts with "goog_").
+export const REVENUECAT_ANDROID_KEY = 'goog_REPLACE_WITH_YOUR_PUBLIC_ANDROID_KEY';
+
+// iOS key — left blank until the App Store phase; iOS purchases stay disabled.
+export const REVENUECAT_IOS_KEY = '';
+
+// The entitlement identifier configured in the RevenueCat dashboard.
+export const ENTITLEMENT_ID = 'pro';
+
+// The platform key, or null when we have none (so init can no-op cleanly).
+export function revenueCatKey(): string | null {
+  if (Platform.OS === 'android') return REVENUECAT_ANDROID_KEY || null;
+  if (Platform.OS === 'ios') return REVENUECAT_IOS_KEY || null;
+  return null;
+}

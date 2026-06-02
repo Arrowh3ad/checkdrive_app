@@ -41,6 +41,7 @@ import { NewChecklistScreen } from '../screens/NewChecklistScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { CarDetectionSetupScreen } from '../screens/CarDetectionSetupScreen';
 import { TripHistoryScreen } from '../screens/TripHistoryScreen';
+import { PaywallScreen } from '../screens/PaywallScreen';
 
 // Re-exported so existing import sites (App.tsx) can keep importing it from
 // here. The ref itself is defined in ./navigationRef to avoid a require cycle —
@@ -95,6 +96,8 @@ export function AppNavigator({ onReady }: { onReady?: () => void }) {
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="CarDetectionSetup" component={CarDetectionSetupScreen} />
         <Stack.Screen name="TripHistory" component={TripHistoryScreen} />
+        {/* Paywall is presented modally so the close (X) feels like dismissing a sheet. */}
+        <Stack.Screen name="Paywall" component={PaywallScreen} options={{ presentation: 'modal' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

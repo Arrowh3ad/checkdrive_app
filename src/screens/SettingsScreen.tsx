@@ -26,7 +26,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAppStore } from '../store/useAppStore';
 import { theme } from '../theme';
 
@@ -45,6 +45,32 @@ export function SettingsScreen() {
           </TouchableOpacity>
           <Text style={s.title}>Settings</Text>
         </View>
+
+        {/* ── Pro banner / status ──────────────────────────────────────────── */}
+        {settings.isPro ? (
+          <View style={s.proActive}>
+            <MaterialCommunityIcons name="crown" size={18} color={theme.colors.purple} />
+            <View style={{ flex: 1 }}>
+              <Text style={s.proActiveTitle}>CheckDrive Pro</Text>
+              <Text style={s.proActiveSub}>Unlimited checklists · No ads · Thank you!</Text>
+            </View>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={s.proBanner}
+            onPress={() => (navigation as any).navigate('Paywall')}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={s.proTitle}>
+                <MaterialCommunityIcons name="crown" size={13} /> Unlock CheckDrive Pro
+              </Text>
+              <Text style={s.proSub}>Unlimited checklists · No ads · One-time purchase</Text>
+            </View>
+            <View style={s.proBtn}>
+              <Text style={s.proBtnText}>View</Text>
+            </View>
+          </TouchableOpacity>
+        )}
 
         {/* ── Preferences ──────────────────────────────────────────────────── */}
         {/* Each toggle writes directly to the Zustand store via updateSettings() */}
@@ -214,6 +240,19 @@ const s = StyleSheet.create({
     paddingVertical: 8,
   },
   proBtnText: { color: '#fff', fontSize: 13, fontWeight: '500' },
+
+  proActive: {
+    backgroundColor: theme.colors.purpleLight,
+    borderWidth: 0.5,
+    borderColor: theme.colors.purpleBorder,
+    borderRadius: theme.radius.lg,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  proActiveTitle: { fontSize: 14, fontWeight: '600', color: theme.colors.purpleDark },
+  proActiveSub: { fontSize: 12, color: theme.colors.purple, marginTop: 2 },
 
   setupRow: {
     flexDirection: 'row',
