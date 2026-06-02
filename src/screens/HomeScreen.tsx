@@ -40,6 +40,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAppStore } from '../store/useAppStore';
 import { useCarDetection } from '../hooks/useCarDetection';
+import { AdBanner } from '../ads/AdBanner';
 import { theme } from '../theme';
 import { Checklist, RootStackParamList, ActiveRun } from '../types';
 import { formatTimeAgo } from '../utils/time';
@@ -387,6 +388,10 @@ export function HomeScreen() {
         </View>
 
       </ScrollView>
+
+      {/* Anchored banner ad — self-gates (hidden for Pro, on iOS, while driving,
+          and in Expo Go). Sits below the scroll content, above the safe area. */}
+      <AdBanner />
     </SafeAreaView>
   );
 }

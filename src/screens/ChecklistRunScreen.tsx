@@ -50,6 +50,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../store/useAppStore';
+import { maybeShowInterstitial } from '../ads/interstitial';
 import { theme } from '../theme';
 import { RootStackParamList, ActiveRun } from '../types';
 
@@ -276,7 +277,16 @@ export function ChecklistRunScreen() {
     // resume state are cleared.
     clearActiveRun(checklist.id);
     Alert.alert('Trip complete!', `${totalChecked}/${allItems.length} items checked.`, [
-      { text: 'OK', onPress: () => navigation.goBack() },
+      {
+        text: 'OK',
+        onPress: () => {
+          navigation.goBack();
+          // Natural break: try an interstitial after returning Home. Self-gates
+          // (non-Pro, Android, not driving) and frequency-caps internally, so
+          // most completions won't show one.
+          maybeShowInterstitial();
+        },
+      },
     ]);
   }
 

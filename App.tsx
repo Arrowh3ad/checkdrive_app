@@ -33,6 +33,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 import { AppNavigator, navigationRef } from './src/navigation/AppNavigator';
 import { useNotifications } from './src/hooks/useNotifications';
+import { useAdsInit } from './src/ads/useAdsInit';
+import { initInterstitial } from './src/ads/interstitial';
 
 // Configure how expo-notifications displays alerts while the app is in the
 // foreground. Without this handler, iOS silently drops foreground notifications.
@@ -56,6 +58,13 @@ let pendingNotificationNav: PendingNav | null = null;
 function AppRoot() {
   // Requests notification permissions on mount (handled inside the hook).
   useNotifications();
+
+  // Initialize AdMob + UMP consent once (Android-only; no-ops elsewhere), then
+  // warm the first interstitial so it's ready at the next natural break.
+  useAdsInit();
+  useEffect(() => {
+    initInterstitial();
+  }, []);
 
   // Listen for notification taps. The `data` payload embedded by
   // `sendTripStartNotification` (see useNotifications.ts) contains the
