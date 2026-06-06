@@ -21,19 +21,26 @@ import { Platform } from 'react-native';
 import { useAppStore } from '../store/useAppStore';
 import { Admob, adsNativeAvailable } from './admob';
 
-// Real (production) unit IDs — REPLACE with the IDs from your AdMob console.
-// Format: 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX' (note the slash).
+// Real (production) AdMob ad-unit IDs for CheckDrive.
 const REAL_UNITS = {
-  banner: 'ca-app-pub-0000000000000000/0000000000',
-  interstitial: 'ca-app-pub-0000000000000000/0000000000',
+  banner: 'ca-app-pub-2899842987578725/7257839806',
+  interstitial: 'ca-app-pub-2899842987578725/5944758135',
 };
 
-// In dev we force test IDs; in production we use the real ones. `TestIds.*`
-// are Google's public sandbox units that always return a test ad. Falls back to
-// the real IDs if the library isn't loaded (the values are unused in that case).
+// ⚠️ SAFETY FLAG — keep TRUE for every build except the final store release.
+// EAS preview/production builds are RELEASE builds where __DEV__ is FALSE, so
+// without this flag they would load REAL ads — and tapping your own live ads
+// can get the AdMob account BANNED. Leave true while testing; flip to false
+// ONLY for the production build you actually submit to the store.
+export const USE_TEST_ADS = true;
+
+const useTest = __DEV__ || USE_TEST_ADS;
+
+// Test IDs (Google's public sandbox units, always safe to tap) until the store
+// build; real IDs only when useTest is false.
 export const AD_UNITS = {
-  banner: __DEV__ ? (Admob?.TestIds.BANNER ?? REAL_UNITS.banner) : REAL_UNITS.banner,
-  interstitial: __DEV__
+  banner: useTest ? (Admob?.TestIds.BANNER ?? REAL_UNITS.banner) : REAL_UNITS.banner,
+  interstitial: useTest
     ? (Admob?.TestIds.INTERSTITIAL ?? REAL_UNITS.interstitial)
     : REAL_UNITS.interstitial,
 };
