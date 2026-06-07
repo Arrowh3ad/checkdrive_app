@@ -141,36 +141,9 @@ const defaultChecklists: Checklist[] = [
   },
 ];
 
-// Pre-populated trip history so the HomeScreen stats aren't all zeros on first run.
-const defaultTripLogs: TripLog[] = [
-  {
-    id: 'log-1',
-    checklistId: 'cl-default-1',
-    checklistName: 'Daily commute',
-    checkedCount: 6,
-    totalCount: 6,
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    isComplete: true,
-  },
-  {
-    id: 'log-2',
-    checklistId: 'cl-default-3',
-    checklistName: 'School run',
-    checkedCount: 3,
-    totalCount: 4,
-    timestamp: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(),
-    isComplete: false,
-  },
-  {
-    id: 'log-3',
-    checklistId: 'cl-default-1',
-    checklistName: 'Daily commute',
-    checkedCount: 6,
-    totalCount: 6,
-    timestamp: new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString(),
-    isComplete: true,
-  },
-];
+// Release builds start with a clean trip history — no seeded example trips, so
+// the HomeScreen stats reflect only the user's real trips from day one.
+const defaultTripLogs: TripLog[] = [];
 
 // ── Store interface ───────────────────────────────────────────────────────────
 // Declaring the interface separately (instead of inferring it from `create`)
@@ -265,12 +238,15 @@ export const useAppStore = create<AppStore>()(
         // live RevenueCat entitlement on launch. Defaults false (free tier);
         // flips true when the user owns the lifetime Pro unlock.
         isPro: false,
-        currentStreak: 5,
-        totalTrips: 47,
+        currentStreak: 0,
+        totalTrips: 0,
         defaultChecklistId: null,
         openChecklistOnConnect: false,
       },
-      connectedToVehicle: true,
+      // Fresh installs are not connected until a real ACL event fires. (Was
+      // seeded `true` for demos, which both mis-showed "connected" on the Home
+      // banner and suppressed ads on first launch via the adsEnabled() gate.)
+      connectedToVehicle: false,
       activeRuns: [],
       lastTripChecklistId: null,
       // Starts as guest; useAuthSync fills this in once Firebase reports state.

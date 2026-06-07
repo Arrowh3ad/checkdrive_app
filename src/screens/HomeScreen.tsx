@@ -13,9 +13,12 @@
 //   • Stats grid — trips this week + completion rate
 //
 // ⋮ MENU
-// Each checklist row has an ellipsis button that opens an Alert with three
-// options: Set/remove default (Pro-gated), Edit, Delete. The ⋮ button is
-// rendered outside the main TouchableOpacity so the two touch targets don't
+// Each checklist row has an ellipsis button that opens a bottom-sheet Modal
+// with options: Set/remove default, Edit, Duplicate, Delete, and Cancel. We
+// use a custom Modal rather than Alert.alert because Android's native dialog
+// caps at three buttons and silently drops the rest (including Cancel), so an
+// Alert-based menu leaves Android users with no way to back out. The ⋮ button
+// is rendered outside the main TouchableOpacity so the two touch targets don't
 // interfere with each other.
 //
 // CONNECTIONS TO THE REST OF THE APP
@@ -24,7 +27,7 @@
 //   navigation.navigate → ChecklistRun / MultiStop / NewChecklist / Settings
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -33,6 +36,8 @@ import {
   StyleSheet,
   Alert,
   Image,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -67,6 +72,9 @@ export function HomeScreen() {
   // Mounting useCarDetection here registers the deep-link + native car-event
   // listeners for the entire app session.
   useCarDetection();
+
+  // The checklist whose ⋮ menu is open, or null when the sheet is closed.
+  const [menuTarget, setMenuTarget] = useState<Checklist | null>(null);
 
   // Derived stats — computed inline to avoid stale closure issues with useState.
   const recentLogs = tripLogs.slice(0, 3);
@@ -111,45 +119,33 @@ export function HomeScreen() {
     navigation.navigate('NewChecklist');
   }
 
-  // Shows an action sheet for a given checklist row. The sheet has three
-  // options: default toggle (Pro-gated), edit, and delete.
+  // Opens the bottom-sheet menu for a checklist row (see the ⋮ MENU note up top
+  // for why this is a Modal and not Alert.alert).
   function onChecklistMenu(cl: Checklist) {
-    const isDefault = settings.defaultChecklistId === cl.id;
+    setMenuTarget(cl);
+  }
 
-    Alert.alert(cl.name, undefined, [
-      {
-        // Toggle: clear the default if this is it, otherwise set it.
-        text: isDefault ? 'Remove as default' : 'Set as default',
-        onPress: () => setDefaultChecklist(isDefault ? null : cl.id),
-      },
-      {
-        text: 'Edit',
-        // Pass checklistId as a param — NewChecklistScreen uses it to enter edit mode.
-        onPress: () => navigation.navigate('NewChecklist', { checklistId: cl.id }),
-      },
-      {
-        text: 'Duplicate',
-        onPress: () => duplicateChecklist(cl.id),
-      },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () =>
-          Alert.alert(
-            'Delete checklist',
-            `Delete "${cl.name}"? This cannot be undone.`,
-            [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Delete',
-                style: 'destructive',
-                onPress: () => deleteChecklist(cl.id),
-              },
-            ]
-          ),
-      },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+  // Runs a menu action, closing the sheet first so the action's own UI (e.g.
+  // navigation, or the delete-confirm Alert) isn't stacked under the modal.
+  function runMenuAction(action: () => void) {
+    setMenuTarget(null);
+    action();
+  }
+
+  // Delete confirmation. Two buttons only, so Alert.alert is safe on Android here.
+  function confirmDeleteChecklist(cl: Checklist) {
+    Alert.alert(
+      'Delete checklist',
+      `Delete "${cl.name}"? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => deleteChecklist(cl.id),
+        },
+      ]
+    );
   }
 
   // Short progress summary shown under a checklist name in the resume banner.
@@ -406,6 +402,80 @@ export function HomeScreen() {
       {/* Anchored banner ad — self-gates (hidden for Pro, on iOS, while driving,
           and in Expo Go). Sits below the scroll content, above the safe area. */}
       <AdBanner />
+
+      {/* ── Checklist ⋮ menu (bottom sheet) ──────────────────────────────────
+          Custom Modal instead of Alert.alert: Android's native dialog caps at
+          three buttons, which would silently drop options (including Cancel).
+          Tapping the backdrop or Cancel dismisses on both platforms. */}
+      <Modal
+        visible={menuTarget !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuTarget(null)}
+      >
+        <Pressable style={s.menuBackdrop} onPress={() => setMenuTarget(null)}>
+          {/* Stop propagation so taps on the sheet itself don't close it. */}
+          <Pressable style={s.menuSheet} onPress={() => {}}>
+            {menuTarget && (
+              <>
+                <Text style={s.menuTitle} numberOfLines={1}>{menuTarget.name}</Text>
+
+                <TouchableOpacity
+                  style={s.menuItem}
+                  onPress={() => {
+                    const isDefault = settings.defaultChecklistId === menuTarget.id;
+                    runMenuAction(() => setDefaultChecklist(isDefault ? null : menuTarget.id));
+                  }}
+                >
+                  <Ionicons
+                    name={settings.defaultChecklistId === menuTarget.id ? 'star-outline' : 'star'}
+                    size={18}
+                    color={theme.colors.textSecondary}
+                  />
+                  <Text style={s.menuItemText}>
+                    {settings.defaultChecklistId === menuTarget.id ? 'Remove as default' : 'Set as default'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={s.menuItem}
+                  onPress={() =>
+                    runMenuAction(() =>
+                      navigation.navigate('NewChecklist', { checklistId: menuTarget.id })
+                    )
+                  }
+                >
+                  <Ionicons name="create-outline" size={18} color={theme.colors.textSecondary} />
+                  <Text style={s.menuItemText}>Edit</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={s.menuItem}
+                  onPress={() => runMenuAction(() => duplicateChecklist(menuTarget.id))}
+                >
+                  <Ionicons name="copy-outline" size={18} color={theme.colors.textSecondary} />
+                  <Text style={s.menuItemText}>Duplicate</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={s.menuItem}
+                  onPress={() => runMenuAction(() => confirmDeleteChecklist(menuTarget))}
+                >
+                  <Ionicons name="trash-outline" size={18} color={theme.colors.danger} />
+                  <Text style={[s.menuItemText, { color: theme.colors.danger }]}>Delete</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[s.menuItem, s.menuCancel]}
+                  onPress={() => setMenuTarget(null)}
+                >
+                  <Text style={[s.menuItemText, s.menuCancelText]}>Cancel</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -542,4 +612,39 @@ const s = StyleSheet.create({
   },
   statVal: { fontSize: 22, fontWeight: '500', color: theme.colors.textPrimary },
   statLabel: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 2 },
+
+  // ── ⋮ menu (bottom sheet) ───────────────────────────────────────────────
+  menuBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  menuSheet: {
+    backgroundColor: theme.colors.bgPrimary,
+    borderTopLeftRadius: theme.radius.lg,
+    borderTopRightRadius: theme.radius.lg,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.lg,
+    paddingBottom: theme.spacing.xxl,
+  },
+  menuTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.colors.textTertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: theme.spacing.sm,
+    paddingHorizontal: 2,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    borderTopWidth: 0.5,
+    borderTopColor: theme.colors.borderTertiary,
+  },
+  menuItemText: { fontSize: 16, color: theme.colors.textPrimary },
+  menuCancel: { justifyContent: 'center', marginTop: theme.spacing.sm, borderTopWidth: 0 },
+  menuCancelText: { color: theme.colors.textSecondary, fontWeight: '500' },
 });
