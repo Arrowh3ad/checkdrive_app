@@ -39,10 +39,10 @@ import {
 } from '../purchases/purchases';
 import { theme } from '../theme';
 
-// Hosted via GitHub Pages from this repo's /docs folder (Settings → Pages →
-// Source: main /docs). Swap to a custom domain later if you get one.
-const TERMS_URL = 'https://arrowh3ad.github.io/checkdrive_app/terms.html';
-const PRIVACY_URL = 'https://arrowh3ad.github.io/checkdrive_app/privacy.html';
+// Hosted via GitHub Pages from the separate public `checkdrive-legal` repo
+// (keeps the app source private). Swap to a custom domain later if you get one.
+const TERMS_URL = 'https://arrowh3ad.github.io/checkdrive-legal/terms.html';
+const PRIVACY_URL = 'https://arrowh3ad.github.io/checkdrive-legal/privacy.html';
 
 const PERKS = [
   { icon: 'infinite', title: 'Unlimited checklists', sub: 'Free plan is limited to 3' },
