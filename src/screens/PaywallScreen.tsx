@@ -39,9 +39,10 @@ import {
 } from '../purchases/purchases';
 import { theme } from '../theme';
 
-// TODO: replace with your hosted policy URLs before submission.
-const TERMS_URL = 'https://checkdrive.app/terms';
-const PRIVACY_URL = 'https://checkdrive.app/privacy';
+// Hosted via GitHub Pages from this repo's /docs folder (Settings → Pages →
+// Source: main /docs). Swap to a custom domain later if you get one.
+const TERMS_URL = 'https://arrowh3ad.github.io/checkdrive_app/terms.html';
+const PRIVACY_URL = 'https://arrowh3ad.github.io/checkdrive_app/privacy.html';
 
 const PERKS = [
   { icon: 'infinite', title: 'Unlimited checklists', sub: 'Free plan is limited to 3' },
