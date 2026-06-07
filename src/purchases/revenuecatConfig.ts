@@ -12,8 +12,9 @@
 
 import { Platform } from 'react-native';
 
-// TODO: paste your real public Android API key (starts with "goog_").
-export const REVENUECAT_ANDROID_KEY = 'goog_REPLACE_WITH_YOUR_PUBLIC_ANDROID_KEY';
+// Public Android SDK key from RevenueCat (Project → API keys). Public = safe to
+// ship in the app binary.
+export const REVENUECAT_ANDROID_KEY = 'goog_fxwFsyzQJHQdcyQPpriKlBNEYhD';
 
 // iOS key — left blank until the App Store phase; iOS purchases stay disabled.
 export const REVENUECAT_IOS_KEY = '';
