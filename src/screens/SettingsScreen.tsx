@@ -2,17 +2,11 @@
 // screens/SettingsScreen.tsx  —  User preferences and account management.
 //
 // SECTIONS
-//   • Account card — avatar, name, plan badge
-//   • Pro upgrade banner (free users) OR manage-subscription row (Pro users)
-//   • Preferences — push notifications, BT auto-detect, trip streaks
-//   • Car detection setup — link to the Shortcuts setup guide
+//   • Pro upgrade banner (free users) OR Pro-active status (Pro users)
+//   • Preferences — push notifications, BT auto-detect, open-on-connect, streaks
+//   • Car detection setup — link to the setup guide
 //   • Stats grid — total trips + day streak
 //   • Version footer
-//
-// SIMULATE DOWNGRADE
-// The "Manage Subscription" dialog includes a "Simulate Downgrade" button that
-// calls `downgradeFromPro()`. This trims checklists to 3 and clears Pro-only
-// state so we can test the downgrade path without a real payment provider.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React from 'react';
@@ -190,36 +184,6 @@ const s = StyleSheet.create({
   },
   cardLabel: { fontSize: 13, fontWeight: '500', color: theme.colors.textSecondary },
   divider: { height: 0.5, backgroundColor: theme.colors.borderTertiary },
-
-  accountRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
-  accountCta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-    marginTop: 4,
-    borderTopWidth: 0.5,
-    borderTopColor: theme.colors.borderTertiary,
-  },
-  accountCtaText: { fontSize: 14, fontWeight: '500', color: theme.colors.primary },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: { fontSize: 14, fontWeight: '500', color: theme.colors.primaryDeep },
-  accountName: { fontSize: 15, fontWeight: '500', color: theme.colors.textPrimary },
-  accountMeta: { fontSize: 12, color: theme.colors.textSecondary },
-  syncNote: {
-    fontSize: 12,
-    color: theme.colors.textTertiary,
-    lineHeight: 16,
-    marginTop: 2,
-  },
 
   proBanner: {
     backgroundColor: theme.colors.purpleLight,

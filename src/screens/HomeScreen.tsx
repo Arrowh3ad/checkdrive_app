@@ -3,10 +3,8 @@
 //
 // LAYOUT (top to bottom):
 //   • Topbar — app name + settings button
-//   • Vehicle Detection Banner — shows CarPlay connection status; tapping it
-//     opens the default/autoDetect checklist. Also contains the "Simulate"
-//     button for testing.
-//   • Ad banner — shown to free users only (placeholder for a real ad SDK)
+//   • Vehicle Detection Banner — shows connection status; tapping it opens the
+//     default/autoDetect checklist.
 //   • Checklists section — list of all user checklists with a ⋮ menu per row
 //   • "New checklist" button — gated to 3 on the free plan
 //   • Recent trips — last 3 trip logs
