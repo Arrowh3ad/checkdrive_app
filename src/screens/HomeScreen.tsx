@@ -270,12 +270,8 @@ export function HomeScreen() {
           </>
         )}
 
-        {/* Ad placeholder — only shown to free users */}
-        {!settings.isPro && (
-          <View style={s.adBanner}>
-            <Text style={s.adText}>Advertisement — upgrade to Pro to remove</Text>
-          </View>
-        )}
+        {/* The real ad banner is the anchored <AdBanner /> at the bottom of the
+            screen — no inline placeholder here. */}
 
         {/* ── My checklists ───────────────────────────────────────────────── */}
         <Text style={s.sectionLabel}>My checklists</Text>
@@ -513,17 +509,6 @@ const s = StyleSheet.create({
   },
   simBtnText: { color: '#fff', fontSize: 12, fontWeight: '500' },
   setupLink: { fontSize: 12, color: theme.colors.textSecondary, textAlign: 'right', marginTop: -4 },
-
-  adBanner: {
-    backgroundColor: theme.colors.bgTertiary,
-    borderWidth: 0.5,
-    borderStyle: 'dashed',
-    borderColor: theme.colors.borderSecondary,
-    borderRadius: theme.radius.md,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  adText: { fontSize: 12, color: theme.colors.textTertiary },
 
   sectionRow: {
     flexDirection: 'row',
