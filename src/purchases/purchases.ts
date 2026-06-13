@@ -78,25 +78,42 @@ export async function initPurchases(): Promise<void> {
   }
 }
 
+// TEMPORARY DIAGNOSTIC: records why the last getProOffering() returned null, so
+// the paywall can surface the real reason instead of a generic "unavailable".
+// Remove (along with the paywall diagnostic block) before the store release.
+export let lastOfferingError: string | null = null;
+
 // Fetch the lifetime package to display on the paywall, or null if unavailable.
 export async function getProOffering(): Promise<ProPackage | null> {
-  if (!nativeAvailable || !Purchases) return null;
+  if (!nativeAvailable || !Purchases) {
+    lastOfferingError = 'native module unavailable (purchasesAvailable=false)';
+    return null;
+  }
   try {
     const offerings = await Purchases.getOfferings();
     const current = offerings?.current;
-    if (!current) return null;
+    if (!current) {
+      const all = offerings?.all ? Object.keys(offerings.all) : [];
+      lastOfferingError = `no "current" offering (all offerings: ${all.length ? all.join(', ') : 'none'})`;
+      return null;
+    }
     // Prefer the explicit lifetime package; otherwise take the first one.
     const pkg =
       current.lifetime ??
       current.availablePackages?.[0] ??
       null;
-    if (!pkg) return null;
+    if (!pkg) {
+      lastOfferingError = `current offering "${current.identifier}" has 0 packages`;
+      return null;
+    }
+    lastOfferingError = null;
     return {
       identifier: pkg.identifier,
       priceString: pkg.product?.priceString ?? '',
       raw: pkg,
     };
-  } catch {
+  } catch (e: any) {
+    lastOfferingError = `getOfferings threw: ${e?.message ?? String(e)}`;
     return null;
   }
 }

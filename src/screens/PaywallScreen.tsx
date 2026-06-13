@@ -35,6 +35,7 @@ import {
   purchasePro,
   restorePurchases,
   purchasesAvailable,
+  lastOfferingError,
   ProPackage,
 } from '../purchases/purchases';
 import { theme } from '../theme';
@@ -148,6 +149,11 @@ export function PaywallScreen() {
               Purchases aren’t available right now. Make sure you’re using the installed app
               (not Expo Go) and try again later.
             </Text>
+            {/* TEMPORARY DIAGNOSTIC — remove before store release. */}
+            <Text style={s.diagText}>
+              diag: purchasesAvailable={String(purchasesAvailable)}{'\n'}
+              reason={lastOfferingError ?? 'still loading / unknown'}
+            </Text>
           </View>
         ) : (
           <>
@@ -249,6 +255,7 @@ const s = StyleSheet.create({
     marginTop: 20,
   },
   unavailableText: { fontSize: 13, color: theme.colors.textSecondary, lineHeight: 19, textAlign: 'center' },
+  diagText: { fontSize: 11, color: theme.colors.danger, marginTop: 10, textAlign: 'center', fontFamily: 'monospace' },
 
   legalRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 24 },
   legalLink: { fontSize: 12, color: theme.colors.textTertiary, textDecorationLine: 'underline' },
