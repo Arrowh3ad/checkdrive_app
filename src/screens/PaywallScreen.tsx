@@ -35,7 +35,6 @@ import {
   purchasePro,
   restorePurchases,
   purchasesAvailable,
-  lastOfferingError,
   ProPackage,
 } from '../purchases/purchases';
 import { theme } from '../theme';
@@ -74,10 +73,8 @@ export function PaywallScreen() {
     };
   }, []);
 
-  // If the user becomes Pro (purchase or restore succeeds), close the paywall.
-  useEffect(() => {
-    if (isPro) navigation.goBack();
-  }, [isPro, navigation]);
+  // When the user is Pro we don't auto-close — we render an "active" confirmation
+  // state (see below) so a purchase/restore gives clear feedback.
 
   async function handleBuy() {
     if (!pkg) return;
@@ -141,18 +138,26 @@ export function PaywallScreen() {
         </View>
 
         {/* Buy / states */}
-        {loading ? (
+        {isPro ? (
+          // Already Pro — show a confirmation instead of the buy button. (A
+          // lifetime unlock can't be re-bought, so no purchase UI here.)
+          <View style={s.activeBox}>
+            <Ionicons name="checkmark-circle" size={40} color={theme.colors.purple} />
+            <Text style={s.activeTitle}>Pro is active</Text>
+            <Text style={s.activeSub}>
+              You have lifetime access — thank you for your support!
+            </Text>
+            <TouchableOpacity style={s.buyBtn} onPress={() => navigation.goBack()}>
+              <Text style={s.buyBtnText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        ) : loading ? (
           <ActivityIndicator style={{ marginTop: 20 }} color={theme.colors.purple} />
         ) : !purchasesAvailable || !pkg ? (
           <View style={s.unavailable}>
             <Text style={s.unavailableText}>
-              Purchases aren’t available right now. Make sure you’re using the installed app
-              (not Expo Go) and try again later.
-            </Text>
-            {/* TEMPORARY DIAGNOSTIC — remove before store release. */}
-            <Text style={s.diagText}>
-              diag: purchasesAvailable={String(purchasesAvailable)}{'\n'}
-              reason={lastOfferingError ?? 'still loading / unknown'}
+              Purchases aren’t available right now. Please check your connection and
+              try again in a moment.
             </Text>
           </View>
         ) : (
@@ -255,7 +260,16 @@ const s = StyleSheet.create({
     marginTop: 20,
   },
   unavailableText: { fontSize: 13, color: theme.colors.textSecondary, lineHeight: 19, textAlign: 'center' },
-  diagText: { fontSize: 11, color: theme.colors.danger, marginTop: 10, textAlign: 'center', fontFamily: 'monospace' },
+
+  activeBox: { alignItems: 'center', marginTop: 24, gap: 8 },
+  activeTitle: { fontSize: 18, fontWeight: '600', color: theme.colors.textPrimary, marginTop: 4 },
+  activeSub: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
 
   legalRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 24 },
   legalLink: { fontSize: 12, color: theme.colors.textTertiary, textDecorationLine: 'underline' },
