@@ -78,7 +78,9 @@ const defaultChecklists: Checklist[] = [
     ],
     stops: [],
     isMultiStop: false,
-    autoDetect: true,
+    // Only one seed list is auto-detected (Daily commute) — the app picks the
+    // first autoDetect checklist, so multiple "Auto on" lists would be confusing.
+    autoDetect: false,
     geofenceEnabled: false,
     endOfTripEnabled: false,
     createdAt: new Date().toISOString(),
