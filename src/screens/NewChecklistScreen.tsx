@@ -110,7 +110,10 @@ export function NewChecklistScreen() {
   // sensible defaults in create mode.
 
   const [name, setName] = useState(editingChecklist?.name ?? '');
-  const [autoDetect, setAutoDetect] = useState(editingChecklist?.autoDetect ?? true);
+  // New lists default to auto-detect OFF: only one checklist can be the
+  // auto-open pick (enforced in the store), so a new list shouldn't silently
+  // steal it from an existing one.
+  const [autoDetect, setAutoDetect] = useState(editingChecklist?.autoDetect ?? false);
   const [endOfTrip, setEndOfTrip] = useState(editingChecklist?.endOfTripEnabled ?? true);
   const [backSeat, setBackSeat] = useState(editingChecklist?.backSeatReminder ?? false);
   const [backSeatMsg, setBackSeatMsg] = useState(editingChecklist?.backSeatMessage ?? '');
@@ -462,7 +465,7 @@ export function NewChecklistScreen() {
             <Text style={s.cardSectionLabel}>Trigger settings</Text>
             <ToggleRow
               title="Auto-detect CarPlay / Android Auto"
-              subtitle="Opens checklist when car connected"
+              subtitle="The one checklist opened when your car connects"
               value={autoDetect}
               onToggle={setAutoDetect}
             />

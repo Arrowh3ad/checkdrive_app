@@ -51,6 +51,36 @@ describe('downgradeFromPro', () => {
   });
 });
 
+describe('autoDetect single-select', () => {
+  it('clears autoDetect on other lists when one is enabled via addChecklist', () => {
+    useAppStore.setState({
+      checklists: [makeChecklist({ id: 'a', autoDetect: true })],
+    });
+
+    useAppStore.getState().addChecklist(makeChecklist({ id: 'b', autoDetect: true }));
+
+    const lists = useAppStore.getState().checklists;
+    // The pre-existing list loses autoDetect; exactly one list (the new one) keeps it.
+    // (addChecklist generates a fresh id, so we don't assert on 'b' specifically.)
+    expect(lists.find((c) => c.id === 'a')!.autoDetect).toBe(false);
+    expect(lists.filter((c) => c.autoDetect)).toHaveLength(1);
+  });
+
+  it('clears autoDetect on other lists when one is enabled via updateChecklist', () => {
+    useAppStore.setState({
+      checklists: [
+        makeChecklist({ id: 'a', autoDetect: true }),
+        makeChecklist({ id: 'b', autoDetect: false }),
+      ],
+    });
+
+    useAppStore.getState().updateChecklist('b', { autoDetect: true });
+
+    const lists = useAppStore.getState().checklists;
+    expect(lists.filter((c) => c.autoDetect).map((c) => c.id)).toEqual(['b']);
+  });
+});
+
 describe('addTripLog history', () => {
   it('keeps history for free users and prepends the newest', () => {
     useAppStore.setState({

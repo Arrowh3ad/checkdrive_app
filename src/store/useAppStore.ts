@@ -244,20 +244,25 @@ export const useAppStore = create<AppStore>()(
 
       // ── Checklist actions ────────────────────────────────────────────────
       addChecklist: (data) =>
-        set((state) => ({
-          checklists: [
-            ...state.checklists,
-            // Generate id and createdAt here so callers don't have to supply them.
-            { ...data, id: generateId(), createdAt: new Date().toISOString() },
-          ],
-        })),
+        set((state) => {
+          // Generate id and createdAt here so callers don't have to supply them.
+          const created = { ...data, id: generateId(), createdAt: new Date().toISOString() };
+          // autoDetect is single-select: only one checklist is the auto-open pick.
+          // If the new list is auto-on, clear it on every existing list.
+          const existing = created.autoDetect
+            ? state.checklists.map((cl) => (cl.autoDetect ? { ...cl, autoDetect: false } : cl))
+            : state.checklists;
+          return { checklists: [...existing, created] };
+        }),
 
       updateChecklist: (id, data) =>
         set((state) => ({
-          // Map over checklists, replacing only the one with the matching id.
-          checklists: state.checklists.map((cl) =>
-            cl.id === id ? { ...cl, ...data } : cl
-          ),
+          checklists: state.checklists.map((cl) => {
+            if (cl.id === id) return { ...cl, ...data };
+            // Single-select autoDetect: enabling it on one list clears the others.
+            if (data.autoDetect === true && cl.autoDetect) return { ...cl, autoDetect: false };
+            return cl;
+          }),
         })),
 
       deleteChecklist: (id) =>
