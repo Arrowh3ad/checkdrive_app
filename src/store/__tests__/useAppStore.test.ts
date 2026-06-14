@@ -51,8 +51,8 @@ describe('downgradeFromPro', () => {
   });
 });
 
-describe('addTripLog history cap', () => {
-  it('caps free-plan history at 10 and prepends the newest', () => {
+describe('addTripLog history', () => {
+  it('keeps history for free users and prepends the newest', () => {
     useAppStore.setState({
       tripLogs: Array.from({ length: 10 }, (_, i) => ({
         id: `l${i}`,
@@ -76,7 +76,7 @@ describe('addTripLog history cap', () => {
     });
 
     const logs = useAppStore.getState().tripLogs;
-    expect(logs).toHaveLength(10); // still capped
+    expect(logs).toHaveLength(11); // free users are no longer capped at 10
     expect(logs[0].checklistName).toBe('new'); // newest at the front
   });
 });

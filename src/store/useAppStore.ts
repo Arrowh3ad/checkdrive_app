@@ -61,6 +61,29 @@ const defaultChecklists: Checklist[] = [
     createdAt: new Date().toISOString(),
   },
   {
+    id: 'cl-default-3',
+    name: 'School run',
+    iconName: 'people-outline',
+    iconBg: '#FAEEDA',
+    iconColor: '#854F0B',
+    startItems: [
+      { id: 'sch-1', label: 'School bag' },
+      { id: 'sch-2', label: 'Lunchbox' },
+      { id: 'sch-3', label: 'Permission slips' },
+      { id: 'sch-4', label: 'Sports kit' },
+    ],
+    endItems: [
+      { id: 'sche-1', label: 'Pick up kids' },
+      { id: 'sche-2', label: 'Sign out form' },
+    ],
+    stops: [],
+    isMultiStop: false,
+    autoDetect: true,
+    geofenceEnabled: false,
+    endOfTripEnabled: false,
+    createdAt: new Date().toISOString(),
+  },
+  {
     id: 'cl-default-2',
     name: 'Weekend road trip',
     iconName: 'location-outline',
@@ -112,29 +135,6 @@ const defaultChecklists: Checklist[] = [
     ],
     isMultiStop: true,
     autoDetect: false,
-    geofenceEnabled: false,
-    endOfTripEnabled: false,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'cl-default-3',
-    name: 'School run',
-    iconName: 'people-outline',
-    iconBg: '#FAEEDA',
-    iconColor: '#854F0B',
-    startItems: [
-      { id: 'sch-1', label: 'School bag' },
-      { id: 'sch-2', label: 'Lunchbox' },
-      { id: 'sch-3', label: 'Permission slips' },
-      { id: 'sch-4', label: 'Sports kit' },
-    ],
-    endItems: [
-      { id: 'sche-1', label: 'Pick up kids' },
-      { id: 'sche-2', label: 'Sign out form' },
-    ],
-    stops: [],
-    isMultiStop: false,
-    autoDetect: true,
     geofenceEnabled: false,
     endOfTripEnabled: false,
     createdAt: new Date().toISOString(),
@@ -306,10 +306,9 @@ export const useAppStore = create<AppStore>()(
       // ── Trip log actions ─────────────────────────────────────────────────
       addTripLog: (log) =>
         set((state) => {
-          // Pro users get a much higher cap so the full history stays available.
-          // Free users keep only the last 10 entries (enough for the HomeScreen
-          // recent-trips widget).
-          const cap = state.settings.isPro ? 500 : 10;
+          // Trip history is free for everyone — local-only data, so a generous
+          // cap costs nothing. (Just bounds storage so it can't grow forever.)
+          const cap = 500;
           return {
             tripLogs: [{ ...log, id: generateId() }, ...state.tripLogs.slice(0, cap - 1)],
             // Bump the total-trips counter so the Settings stats stay accurate.

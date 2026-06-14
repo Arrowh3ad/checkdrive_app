@@ -61,7 +61,7 @@ type Route = RouteProp<RootStackParamList, 'ChecklistRun'>;
 export function ChecklistRunScreen() {
   const navigation = useNavigation();
   const { params } = useRoute<Route>();
-  const { checklists, addTripLog, settings, activeRuns, saveActiveRun, clearActiveRun } =
+  const { checklists, addTripLog, activeRuns, saveActiveRun, clearActiveRun } =
     useAppStore();
 
   // Look up the checklist by the ID passed as a navigation param.
@@ -250,28 +250,26 @@ export function ChecklistRunScreen() {
       totalCount: allItems.length,
       timestamp: new Date().toISOString(),
       isComplete: totalChecked === allItems.length,
-      // Pro: attach per-item timestamps and section labels so the history
-      // screen can group and display them clearly.
-      items: settings.isPro
-        ? [
-            ...(hasStart
-              ? checklist.startItems.map((item) => ({
-                  id: item.id,
-                  label: item.label,
-                  checkedAt: checkedAt[item.id],
-                  section: 'Start of trip',
-                }))
-              : []),
-            ...(hasEnd
-              ? checklist.endItems.map((item) => ({
-                  id: item.id,
-                  label: item.label,
-                  checkedAt: checkedAt[item.id],
-                  section: 'End of trip',
-                }))
-              : []),
-          ]
-        : undefined,
+      // Attach per-item timestamps and section labels so the history screen can
+      // group and display them clearly.
+      items: [
+        ...(hasStart
+          ? checklist.startItems.map((item) => ({
+              id: item.id,
+              label: item.label,
+              checkedAt: checkedAt[item.id],
+              section: 'Start of trip',
+            }))
+          : []),
+        ...(hasEnd
+          ? checklist.endItems.map((item) => ({
+              id: item.id,
+              label: item.label,
+              checkedAt: checkedAt[item.id],
+              section: 'End of trip',
+            }))
+          : []),
+      ],
     });
     // The trip is finished — remove its in-progress run so the Home banner and
     // resume state are cleared.

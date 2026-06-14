@@ -34,7 +34,7 @@
 // Params: `{ checklistId: string }`.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -58,7 +58,6 @@ export function MultiStopScreen() {
   const {
     checklists,
     addTripLog,
-    settings,
     activeRuns,
     saveActiveRun,
     clearActiveRun,
@@ -109,16 +108,10 @@ export function MultiStopScreen() {
     };
   }
 
-  // Register the run on mount so a CarPlay reconnect can advance it even before
-  // the user checks anything. We deliberately do NOT clear it on unmount (unlike
-  // the old behaviour) — progress must survive back-navigation. The run is
-  // cleared only on trip completion or via the Home "discard" action.
-  useEffect(() => {
-    if (!checklist) return;
-    if (!run) saveActiveRun(makeRun());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+  // We deliberately do NOT create the run on mount (or clear it on unmount):
+  // an untouched open shouldn't leave a phantom "continue" entry on the Home
+  // banner — consistent with regular checklists. The run is created on the first
+  // item tap (toggle), and cleared only on completion or the Home "discard".
   if (!checklist) {
     return (
       <SafeAreaView style={s.safe}>
@@ -185,14 +178,12 @@ export function MultiStopScreen() {
       const at  = base.stopCheckedAt[idx] ?? {};
       stop.items.forEach((item) => {
         if (ids.has(item.id)) totalChecked++;
-        if (settings.isPro) {
-          allItems.push({
-            id: item.id,
-            label: item.label,
-            checkedAt: at[item.id],
-            section: stopSectionLabel(idx),
-          });
-        }
+        allItems.push({
+          id: item.id,
+          label: item.label,
+          checkedAt: at[item.id],
+          section: stopSectionLabel(idx),
+        });
       });
     });
 
@@ -203,7 +194,7 @@ export function MultiStopScreen() {
       totalCount: totalItems,
       timestamp: new Date().toISOString(),
       isComplete: totalChecked === totalItems,
-      items: settings.isPro ? allItems : undefined,
+      items: allItems,
     });
 
     // The trip is finished — clear its run so it leaves the Home banner and the

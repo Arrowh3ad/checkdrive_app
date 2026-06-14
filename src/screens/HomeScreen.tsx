@@ -346,7 +346,7 @@ export function HomeScreen() {
         {/* ── Recent trips ────────────────────────────────────────────────── */}
         <View style={s.sectionRow}>
           <Text style={s.sectionLabel}>Recent trips</Text>
-          {settings.isPro && (
+          {tripLogs.length > 0 && (
             <TouchableOpacity onPress={() => navigation.navigate('TripHistory')}>
               <Text style={s.viewAllLink}>View all →</Text>
             </TouchableOpacity>
@@ -418,7 +418,15 @@ export function HomeScreen() {
                   style={s.menuItem}
                   onPress={() => {
                     const isDefault = settings.defaultChecklistId === menuTarget.id;
-                    runMenuAction(() => setDefaultChecklist(isDefault ? null : menuTarget.id));
+                    // Setting a default is a Pro feature (it drives open-on-connect).
+                    // Removing one is always allowed; setting routes free users to Pro.
+                    if (isDefault) {
+                      runMenuAction(() => setDefaultChecklist(null));
+                    } else if (!settings.isPro) {
+                      runMenuAction(() => navigation.navigate('Paywall'));
+                    } else {
+                      runMenuAction(() => setDefaultChecklist(menuTarget.id));
+                    }
                   }}
                 >
                   <Ionicons
@@ -427,7 +435,11 @@ export function HomeScreen() {
                     color={theme.colors.textSecondary}
                   />
                   <Text style={s.menuItemText}>
-                    {settings.defaultChecklistId === menuTarget.id ? 'Remove as default' : 'Set as default'}
+                    {settings.defaultChecklistId === menuTarget.id
+                      ? 'Remove as default'
+                      : settings.isPro
+                      ? 'Set as default'
+                      : 'Set as default (Pro)'}
                   </Text>
                 </TouchableOpacity>
 

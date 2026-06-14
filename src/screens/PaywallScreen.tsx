@@ -47,6 +47,7 @@ const PRIVACY_URL = 'https://arrowh3ad.github.io/checkdrive-legal/privacy.html';
 const PERKS = [
   { icon: 'infinite', title: 'Unlimited checklists', sub: 'Free plan is limited to 3' },
   { icon: 'remove-circle-outline', title: 'No ads', sub: 'A clean, distraction-free app' },
+  { icon: 'star-outline', title: 'Default checklist', sub: 'Auto-open your go-to list when the car connects' },
   { icon: 'heart-outline', title: 'Support development', sub: 'A one-time thank-you' },
 ] as const;
 
