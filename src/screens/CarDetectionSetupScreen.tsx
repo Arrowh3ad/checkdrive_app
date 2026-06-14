@@ -136,12 +136,9 @@ const IOS_CONNECT_STEPS = [
     n: '2',
     title: 'Add a "Show Alert" action — this is the "ask first" prompt',
     detail:
-      'Tap "Add Action" → search "Show Alert" (Scripting category) → add it. Set the ' +
-      'message to something like "Start your CheckDrive checklist?" and keep "Show Cancel ' +
-      'Button" ON. This is the prompt that pops up when your car connects: tapping OK is ' +
-      'what opens the app, Cancel dismisses it.\n\n' +
-      'Want it to open instantly with no prompt instead? Just skip this step — everything ' +
-      'else works the same.',
+      'Tap "Add Action" → search "Show Alert" (Scripting) → add it. Set the message to ' +
+      'e.g. "Start your CheckDrive checklist?" and keep "Show Cancel Button" ON: OK opens ' +
+      'the app, Cancel dismisses. Prefer no prompt? Just skip this step.',
   },
   {
     n: '3',
@@ -154,17 +151,15 @@ const IOS_CONNECT_STEPS = [
     n: '4',
     title: 'Tap "Add Action" again → search "Open URLs" → add it',
     detail:
-      '"Open URLs" automatically uses the URL from the previous step. Your actions should ' +
-      'now read top to bottom: Show Alert → URL → Open URLs. Because Open URLs sits AFTER ' +
-      'the alert, the app only opens once you tap OK.',
+      '"Open URLs" auto-uses the URL above. Order should read: Show Alert → URL → Open ' +
+      'URLs, so the app opens only after you tap OK.',
   },
   {
     n: '5',
     title: 'Name the shortcut "Start CheckDrive" → tap Done',
     detail:
-      'Tap the shortcut\'s title at the top of the editor to rename it, then tap Done. You ' +
-      'can test it right now — running it should show the alert, and tapping OK should open ' +
-      'CheckDrive.',
+      'Tap the title at the top to rename it, then Done. Run it once to test: you should ' +
+      'see the alert, and OK should open CheckDrive.',
   },
   {
     n: '6',
@@ -182,10 +177,8 @@ const IOS_CONNECT_STEPS = [
     n: '8',
     title: 'Turn off "Ask Before Running" → tap Done',
     detail:
-      'At the bottom of the automation editor, toggle off "Ask Before Running" (and "Notify ' +
-      'When Run" if shown). The automation itself now runs silently — but your Show Alert ' +
-      'step still pops up, so you get a prompt you can accept or dismiss every time CarPlay ' +
-      'connects.',
+      'Toggle off "Ask Before Running" (and "Notify When Run" if shown). The automation ' +
+      'runs silently, but your Show Alert still prompts on each connect.',
   },
 ];
 
@@ -255,12 +248,9 @@ const IOS_NOTIFY_STEPS = [
     n: '4',
     title: 'Heads-up: the tap opens Shortcuts, not CheckDrive',
     detail:
-      'iOS won\'t let a Show Notification action deep-link on tap, so tapping this banner ' +
-      'opens the Shortcuts app — it\'s just a reminder to open CheckDrive yourself. If you ' +
-      'want the notification\'s tap to actually open your checklist, use the "Open URLs" ' +
-      'method above instead: CheckDrive opens briefly and posts its own tappable ' +
-      'notification, and with "Open app on connect" off in Settings it won\'t jump into a ' +
-      'checklist — it just notifies.',
+      'iOS can\'t deep-link a Show Notification on tap, so tapping it opens the Shortcuts ' +
+      'app — it\'s a passive reminder. For a tap that opens your checklist, use the "Open ' +
+      'URLs" method above instead.',
   },
 ];
 
@@ -271,16 +261,13 @@ const IOS_NOTIFY_STEPS = [
 const ANDROID_PERMISSIONS_STEP = {
   title: 'Grant permissions to your automation app (one-time)',
   detail:
-    'Skip this for Bixby Routines — it\'s a system app and doesn\'t need these. ' +
-    'For any installed app (AutomateIt, Automate, or Tasker), without these settings ' +
-    'the trigger silently fails when the screen is off.\n\n' +
-    '① Draw Over Other Apps — Settings → Apps → [your automation app] → Advanced ' +
-    '→ Display over other apps → Allow.\n\n' +
-    '② Unrestricted battery — Settings → Apps → [app] → Battery → Unrestricted ' +
-    '(look for "Optimize battery usage" if you don\'t see this directly).\n\n' +
-    'Manufacturer extras: on Samsung also enable Auto-start in the same battery menu. ' +
-    'On Xiaomi go to Security → Autostart. On OnePlus check Battery Optimization in ' +
-    'the system Battery settings.',
+    'Not needed for Bixby Routines (system app). For any installed app (e.g. ' +
+    'AutomateIt), without these the trigger silently fails when the screen is off:\n\n' +
+    '① Draw over other apps — Settings → Apps → [app] → Advanced → Display over ' +
+    'other apps → Allow.\n\n' +
+    '② Unrestricted battery — Settings → Apps → [app] → Battery → Unrestricted.\n\n' +
+    'Manufacturer extras: Samsung — also enable Auto-start. Xiaomi — Security → ' +
+    'Autostart. OnePlus — check Battery Optimization.',
 };
 
 // ── Automate by LlamaLab (free) — SHELVED ────────────────────────────────────
@@ -383,16 +370,12 @@ const ANDROID_AUTOMATEIT_CONNECT_STEPS = [
     n: '3',
     title: 'Action: Launch Intent → Activity → Advanced → Action + Data',
     detail:
-      'Choose the "Launch Intent" action. Then:\n' +
-      '  • Set the component type to Activity (NOT Broadcast)\n' +
+      'Choose the "Launch Intent" action, then:\n' +
+      '  • Component type: Activity (NOT Broadcast)\n' +
       '  • Tap "Advanced"\n' +
-      '  • In the "Action" field, enter:  android.intent.action.VIEW\n' +
-      '  • In the "Data" field, enter:  checkdrive://trigger\n\n' +
-      'Both fields are required — the Action MUST be android.intent.action.VIEW and the ' +
-      'Data is the checkdrive:// link. Together they form the VIEW intent Android routes ' +
-      'straight to CheckDrive. Picking Broadcast instead of Activity would send it into ' +
-      'Android\'s broadcast system (where the Firebase receivers live) and would NOT open ' +
-      'the app.',
+      '  • Action:  android.intent.action.VIEW\n' +
+      '  • Data:  checkdrive://trigger\n\n' +
+      'Both Advanced fields are required.'
   },
   {
     n: '4',
@@ -1013,14 +996,14 @@ export function CarDetectionSetupScreen() {
               </Text>
             </Collapsible>
 
-            <View style={s.warnCard}>
+            {/* <View style={s.warnCard}>
               <Ionicons name="warning-outline" size={16} color={theme.colors.warning} />
               <Text style={s.warnText}>
                 <Text style={{ fontWeight: '600' }}>Standalone build required. </Text>
                 This only works with the app installed from Google Play or an EAS Build —
                 not through Expo Go.
               </Text>
-            </View>
+            </View> */}
 
             {/* Copyable URLs — the two deep links every automation app fires. */}
             <View style={s.urlCard}>
