@@ -126,3 +126,58 @@ Drive off with peace of mind. Add CheckDrive to your routine today.
 
 > Keep `USE_TEST_ADS = true` through closed testing — only real end users should
 > ever see live ads. Tapping your own live ads can get the AdMob account banned.
+
+---
+
+# iOS / App Store (full launch with Pro)
+
+The code is already cross-platform (ads off on iOS, Bluetooth → Shortcuts,
+purchases gated on the iOS RevenueCat key). Remaining work is account + external
+setup, then wiring the iOS purchase key.
+
+## A. Apple Developer Program
+1. Enroll at developer.apple.com/programs/enroll ($99/yr, Individual, ~24–48h).
+   Turn on two-factor on the Apple ID first.
+
+## B. App Store Connect — app + paid agreements
+2. appstoreconnect.apple.com → My Apps → + → New App. Bundle ID
+   `com.checkdrive.app`, name CheckDrive, language, SKU.
+3. Agreements, Tax, and Banking → accept the **Paid Apps** agreement and fill in
+   **banking + tax** (required before any in-app purchase can be sold/tested).
+
+## C. App Store in-app purchase
+4. App Store Connect → your app → Monetization → In-App Purchases → + →
+   **Non-Consumable**. Product ID `checkdrive_pro_lifetime` (can match Android),
+   set price, add a localized display name + review screenshot → submit with the
+   app (IAPs are reviewed alongside the first build).
+
+## D. RevenueCat — iOS app
+5. RevenueCat → your project → Apps → + → App Store. Bundle ID
+   `com.checkdrive.app`.
+6. Add the **App Store Connect API key** (App Store Connect → Users and Access →
+   Integrations → App Store Connect API → generate a key) and the app's
+   **shared secret** (App Store Connect → your app → App Information → in-app
+   purchase shared secret) into the RevenueCat iOS app settings.
+7. Import `checkdrive_pro_lifetime` under the **iOS** app, attach it to the same
+   **`pro`** entitlement, and add it to the same **Current** offering's Lifetime
+   package (one package can hold both the Google and Apple products).
+8. Copy the **public iOS SDK key** (starts with `appl_`) → send it to me. I paste
+   it into `REVENUECAT_IOS_KEY` in src/purchases/revenuecatConfig.ts.
+
+## E. Build, test, submit (no Mac needed)
+9. `eas build --platform ios --profile production` — log in with your Apple ID
+   when prompted; EAS creates the signing cert + provisioning profile for you.
+10. `eas submit --platform ios` — uploads to **TestFlight** (no 12-tester/14-day
+    rule like Google; testable right away).
+11. App Store Connect → screenshots (iPhone 6.7" + 6.5"), description, privacy
+    policy URL, **App Privacy** questionnaire (declare AdMob only if you later
+    enable iOS ads; today iOS is ad-free), age rating → **Submit for review**
+    (usually 1–3 days; stricter than Google).
+
+## iOS notes
+- iOS ships **ad-free** today (ads are Android-only). `USE_TEST_ADS` doesn't
+  affect iOS. If you add iOS ads later, you'll create a real iOS AdMob app and
+  complete the App Privacy / ATT details.
+- `userTrackingUsageDescription` is set in app.json so the linked AdMob SDK
+  doesn't trip App Store review even with ads off.
+- Apple does **not** require the 12-tester/14-day closed test that Google does.
