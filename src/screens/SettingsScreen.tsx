@@ -26,7 +26,7 @@ import { theme } from '../theme';
 
 export function SettingsScreen() {
   const navigation = useNavigation();
-  const { settings, updateSettings } = useAppStore();
+  const { settings, updateSettings, checklists } = useAppStore();
 
   return (
     <SafeAreaView style={s.safe}>
@@ -42,13 +42,19 @@ export function SettingsScreen() {
 
         {/* ── Pro banner / status ──────────────────────────────────────────── */}
         {settings.isPro ? (
-          <View style={s.proActive}>
+          // Tappable so Pro users can still reach the Pro screen (it shows an
+          // "active" state). Without this there's no way back into the paywall.
+          <TouchableOpacity
+            style={s.proActive}
+            onPress={() => (navigation as any).navigate('Paywall')}
+          >
             <MaterialCommunityIcons name="crown" size={18} color={theme.colors.purple} />
             <View style={{ flex: 1 }}>
               <Text style={s.proActiveTitle}>CheckDrive Pro</Text>
               <Text style={s.proActiveSub}>Unlimited checklists · No ads · Thank you!</Text>
             </View>
-          </View>
+            <Ionicons name="chevron-forward" size={16} color={theme.colors.textTertiary} />
+          </TouchableOpacity>
         ) : (
           <TouchableOpacity
             style={s.proBanner}
@@ -90,13 +96,6 @@ export function SettingsScreen() {
             value={settings.openChecklistOnConnect}
             onToggle={(v) => updateSettings({ openChecklistOnConnect: v })}
           />
-          <View style={s.divider} />
-          <ToggleRow
-            title="Trip streaks"
-            subtitle="Track consecutive complete trips"
-            value={settings.tripStreaks}
-            onToggle={(v) => updateSettings({ tripStreaks: v })}
-          />
         </View>
 
 
@@ -121,11 +120,8 @@ export function SettingsScreen() {
             <Text style={s.statLabel}>Total trips</Text>
           </View>
           <View style={s.statCard}>
-            {/* Show a flame emoji when streaks are enabled; "—" otherwise */}
-            <Text style={s.statVal}>
-              {settings.tripStreaks ? `🔥 ${settings.currentStreak}` : '—'}
-            </Text>
-            <Text style={s.statLabel}>Day streak</Text>
+            <Text style={s.statVal}>{checklists.length}</Text>
+            <Text style={s.statLabel}>Checklists</Text>
           </View>
         </View>
 

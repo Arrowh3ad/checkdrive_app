@@ -225,12 +225,10 @@ export const useAppStore = create<AppStore>()(
       settings: {
         pushNotifications: true,
         bluetoothAutoDetect: true,
-        tripStreaks: false,
         // Owned by the purchases layer now: initPurchases() writes this from the
         // live RevenueCat entitlement on launch. Defaults false (free tier);
         // flips true when the user owns the lifetime Pro unlock.
         isPro: false,
-        currentStreak: 0,
         totalTrips: 0,
         defaultChecklistId: null,
         openChecklistOnConnect: false,

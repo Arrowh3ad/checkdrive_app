@@ -199,6 +199,10 @@ export async function simulateVehicleDisconnect(): Promise<void> {
 
 export function useCarDetection() {
   const handleVehicleConnect = useCallback(async () => {
+    // Master switch: when "Bluetooth auto-detect" is off, ignore real car
+    // events. The manual "Test connect" buttons call simulateVehicleConnect
+    // directly, so they still work regardless of this setting.
+    if (!useAppStore.getState().settings.bluetoothAutoDetect) return;
     await simulateVehicleConnect();
   }, []);
 
@@ -206,6 +210,7 @@ export function useCarDetection() {
   // Called when the `checkdrive://disconnect` deep link fires (from a
   // "CarPlay disconnects" Shortcuts automation) or via simulateDisconnect.
   const handleVehicleDisconnect = useCallback(async () => {
+    if (!useAppStore.getState().settings.bluetoothAutoDetect) return;
     await simulateVehicleDisconnect();
   }, []);
 

@@ -130,9 +130,7 @@ export type ActiveRun = {
 export type Settings = {
   pushNotifications: boolean;
   bluetoothAutoDetect: boolean;
-  tripStreaks: boolean;
   isPro: boolean;
-  currentStreak: number;
   totalTrips: number;
   // Pro feature: when set, the CarPlay notification tap and the HomeScreen
   // banner tap open this specific checklist instead of the first autoDetect one.
