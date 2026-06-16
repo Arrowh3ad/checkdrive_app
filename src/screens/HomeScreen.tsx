@@ -317,7 +317,9 @@ export function HomeScreen() {
                           (a, st) => a + st.items.length,
                           0
                         )} items · Multi-stop`
-                      : `${cl.startItems.length} start · ${cl.endItems.length} end`}
+                      : cl.endOfTripEnabled && cl.endItems.length > 0
+                        ? `${cl.startItems.length} start · ${cl.endItems.length} end`
+                        : `${cl.startItems.length} item${cl.startItems.length !== 1 ? 's' : ''}`}
                   </Text>
                 </View>
               </TouchableOpacity>

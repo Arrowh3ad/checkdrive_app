@@ -78,7 +78,9 @@ const defaultChecklists: Checklist[] = [
     stops: [],
     isMultiStop: false,
     geofenceEnabled: false,
-    endOfTripEnabled: false,
+    // Two-phase like Daily commute: start (drop-off) + end (arrival) items, so
+    // the end-of-trip tab actually shows the 2 arrival items.
+    endOfTripEnabled: true,
     createdAt: new Date().toISOString(),
   },
   {
