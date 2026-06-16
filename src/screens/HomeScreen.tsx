@@ -4,7 +4,7 @@
 // LAYOUT (top to bottom):
 //   • Topbar — app name + settings button
 //   • Vehicle Detection Banner — shows connection status; tapping it opens the
-//     default/autoDetect checklist.
+//     default checklist (or the first one when no default is set).
 //   • Checklists section — list of all user checklists with a ⋮ menu per row
 //   • "New checklist" button — gated to 3 on the free plan
 //   • Recent trips — last 3 trip logs
@@ -191,11 +191,10 @@ export function HomeScreen() {
           style={[s.detectBanner, !connectedToVehicle && s.detectBannerOff]}
           onPress={() => {
             if (!connectedToVehicle) return;
-            // Open the default checklist if one is set, otherwise the first
-            // checklist that has autoDetect enabled.
+            // Open the default checklist if one is set, otherwise the first list.
             const cl =
               checklists.find((c) => c.id === settings.defaultChecklistId) ??
-              checklists.find((c) => c.autoDetect);
+              checklists[0];
             if (cl) onChecklistPress(cl.id, cl.isMultiStop);
           }}
         >
@@ -318,9 +317,7 @@ export function HomeScreen() {
                           (a, st) => a + st.items.length,
                           0
                         )} items · Multi-stop`
-                      : `${cl.startItems.length} start · ${cl.endItems.length} end · Auto ${
-                          cl.autoDetect ? 'on' : 'off'
-                        }`}
+                      : `${cl.startItems.length} start · ${cl.endItems.length} end`}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -417,16 +414,12 @@ export function HomeScreen() {
                 <TouchableOpacity
                   style={s.menuItem}
                   onPress={() => {
+                    // Setting a default is free now — it just marks the list and
+                    // ties car connect/disconnect reminders to it. (Pro layers on
+                    // auto-opening it via the "open on connect" setting.) Toggle:
+                    // tapping the current default clears it.
                     const isDefault = settings.defaultChecklistId === menuTarget.id;
-                    // Setting a default is a Pro feature (it drives open-on-connect).
-                    // Removing one is always allowed; setting routes free users to Pro.
-                    if (isDefault) {
-                      runMenuAction(() => setDefaultChecklist(null));
-                    } else if (!settings.isPro) {
-                      runMenuAction(() => navigation.navigate('Paywall'));
-                    } else {
-                      runMenuAction(() => setDefaultChecklist(menuTarget.id));
-                    }
+                    runMenuAction(() => setDefaultChecklist(isDefault ? null : menuTarget.id));
                   }}
                 >
                   <Ionicons
@@ -437,9 +430,7 @@ export function HomeScreen() {
                   <Text style={s.menuItemText}>
                     {settings.defaultChecklistId === menuTarget.id
                       ? 'Remove as default'
-                      : settings.isPro
-                      ? 'Set as default'
-                      : 'Set as default (Pro)'}
+                      : 'Set as default'}
                   </Text>
                 </TouchableOpacity>
 

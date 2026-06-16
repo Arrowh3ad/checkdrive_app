@@ -83,11 +83,10 @@ export async function simulateVehicleConnect(): Promise<void> {
   setConnectedToVehicle(true);
 
   // Mark the checklist this trip is "running" so a later disconnect can fire the
-  // right back-seat reminder without depending on a Pro default. Prefer the
-  // explicit default, then the first auto-detect checklist, then anything.
+  // right back-seat reminder. Prefer the user's default, falling back to the
+  // first checklist when none is set.
   const tripChecklist =
     checklists.find((cl) => cl.id === settings.defaultChecklistId) ??
-    checklists.find((cl) => cl.autoDetect) ??
     checklists[0];
   if (tripChecklist) setLastTripChecklist(tripChecklist.id);
 
@@ -117,20 +116,23 @@ export async function simulateVehicleConnect(): Promise<void> {
   // lands on HomeScreen so the user can pick for themselves.
   const defaultCl = checklists.find((cl) => cl.id === settings.defaultChecklistId);
 
-  // OPEN-ON-CONNECT OPTION (opt-in)
-  // When the user has turned on "Open checklist when car connects", open the
-  // app to the right place instead of only posting a notification:
-  //   • Pro + a default checklist set → jump straight into that checklist.
-  //   • Free tier (or Pro without a default) → land on Home, so they can pick.
-  // Jumping to a specific checklist is the Pro behavior because the default
-  // checklist itself is a Pro-only feature (see Settings.defaultChecklistId).
+  // OPEN-ON-CONNECT OPTION (Pro-only)
+  // When a Pro user has turned on "Open my checklist on connect", navigate
+  // straight into their checklist instead of posting a notification:
+  //   • default checklist set → jump straight into that checklist.
+  //   • no default set → land on Home, so they can pick.
+  // This is Pro-only: free users always fall through to the notification path
+  // below, which posts an actionable "tap to run your checklist" reminder (a
+  // better experience than silently landing on Home). The settings toggle is
+  // also hidden for free users, but we gate on isPro here too so a stale flag
+  // (e.g. from a lapsed Pro account) can't trigger this path.
   // The app is already foregrounded here — the checkdrive:// deep link brought
   // it up — so the navigate lands immediately. We guard on `isReady()` for the
   // cold-start race (deep link launches the app before the nav tree mounts);
   // if it's not ready we fall through to the notification, which has its own
   // cold-start handling in App.tsx.
-  if (settings.openChecklistOnConnect && navigationRef.isReady()) {
-    if (settings.isPro && defaultCl) {
+  if (settings.openChecklistOnConnect && settings.isPro && navigationRef.isReady()) {
+    if (defaultCl) {
       if (defaultCl.isMultiStop) {
         navigationRef.navigate('MultiStop', { checklistId: defaultCl.id });
       } else {

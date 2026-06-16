@@ -21,7 +21,6 @@ function makeChecklist(over: Partial<Checklist> = {}): Checklist {
     endItems: [],
     stops: [],
     isMultiStop: false,
-    autoDetect: false,
     geofenceEnabled: false,
     endOfTripEnabled: false,
     createdAt: new Date().toISOString(),
@@ -51,33 +50,15 @@ describe('downgradeFromPro', () => {
   });
 });
 
-describe('autoDetect single-select', () => {
-  it('clears autoDetect on other lists when one is enabled via addChecklist', () => {
-    useAppStore.setState({
-      checklists: [makeChecklist({ id: 'a', autoDetect: true })],
-    });
+describe('addChecklist / updateChecklist', () => {
+  it('appends a new checklist and edits in place', () => {
+    useAppStore.setState({ checklists: [makeChecklist({ id: 'a', name: 'A' })] });
 
-    useAppStore.getState().addChecklist(makeChecklist({ id: 'b', autoDetect: true }));
+    useAppStore.getState().addChecklist(makeChecklist({ name: 'B' }));
+    expect(useAppStore.getState().checklists.map((c) => c.name)).toEqual(['A', 'B']);
 
-    const lists = useAppStore.getState().checklists;
-    // The pre-existing list loses autoDetect; exactly one list (the new one) keeps it.
-    // (addChecklist generates a fresh id, so we don't assert on 'b' specifically.)
-    expect(lists.find((c) => c.id === 'a')!.autoDetect).toBe(false);
-    expect(lists.filter((c) => c.autoDetect)).toHaveLength(1);
-  });
-
-  it('clears autoDetect on other lists when one is enabled via updateChecklist', () => {
-    useAppStore.setState({
-      checklists: [
-        makeChecklist({ id: 'a', autoDetect: true }),
-        makeChecklist({ id: 'b', autoDetect: false }),
-      ],
-    });
-
-    useAppStore.getState().updateChecklist('b', { autoDetect: true });
-
-    const lists = useAppStore.getState().checklists;
-    expect(lists.filter((c) => c.autoDetect).map((c) => c.id)).toEqual(['b']);
+    useAppStore.getState().updateChecklist('a', { name: 'A2' });
+    expect(useAppStore.getState().checklists.find((c) => c.id === 'a')!.name).toBe('A2');
   });
 });
 

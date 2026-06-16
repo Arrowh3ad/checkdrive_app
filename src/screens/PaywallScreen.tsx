@@ -47,15 +47,10 @@ const PRIVACY_URL = 'https://arrowh3ad.github.io/checkdrive-legal/privacy.html';
 const PERKS = [
   { icon: 'infinite', title: 'Unlimited checklists', sub: 'Free plan is limited to 3' },
   { icon: 'remove-circle-outline', title: 'No ads', sub: 'A clean, distraction-free app' },
-  { icon: 'star-outline', title: 'Default checklist', sub: 'Auto-open your go-to list when the car connects' },
+  { icon: 'star-outline', title: 'Auto-open on connect', sub: 'Jump straight into your default list when the car connects' },
   { icon: 'heart-outline', title: 'Support development', sub: 'A one-time thank-you' },
 ] as const;
 
-// ⚠️ TEMPORARY — REMOVE AFTER THE iOS IAP REVIEW SCREENSHOT.
-// Forces the buy state (price + Unlock button) even for an already-Pro account,
-// so we can screenshot the purchase screen for App Store Connect. Set back to
-// false (and remove this whole flag + its use below) before the next release.
-const FORCE_PAYWALL_PREVIEW = true;
 
 export function PaywallScreen() {
   const navigation = useNavigation();
@@ -145,7 +140,7 @@ export function PaywallScreen() {
         </View>
 
         {/* Buy / states */}
-        {isPro && !FORCE_PAYWALL_PREVIEW ? (
+        {isPro ? (
           // Already Pro — show a confirmation instead of the buy button. (A
           // lifetime unlock can't be re-bought, so no purchase UI here.)
           <View style={s.activeBox}>

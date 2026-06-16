@@ -110,10 +110,6 @@ export function NewChecklistScreen() {
   // sensible defaults in create mode.
 
   const [name, setName] = useState(editingChecklist?.name ?? '');
-  // New lists default to auto-detect OFF: only one checklist can be the
-  // auto-open pick (enforced in the store), so a new list shouldn't silently
-  // steal it from an existing one.
-  const [autoDetect, setAutoDetect] = useState(editingChecklist?.autoDetect ?? false);
   const [endOfTrip, setEndOfTrip] = useState(editingChecklist?.endOfTripEnabled ?? true);
   const [backSeat, setBackSeat] = useState(editingChecklist?.backSeatReminder ?? false);
   const [backSeatMsg, setBackSeatMsg] = useState(editingChecklist?.backSeatMessage ?? '');
@@ -303,7 +299,6 @@ export function NewChecklistScreen() {
           }))
         : [],
       isMultiStop,
-      autoDetect,
       // geofenceEnabled is deprecated (never implemented; removed from Pro) —
       // always false now, kept on the type to avoid a data migration.
       geofenceEnabled: false,
@@ -463,12 +458,6 @@ export function NewChecklistScreen() {
           {/* ── Trigger settings ──────────────────────────────────────────── */}
           <View style={s.card}>
             <Text style={s.cardSectionLabel}>Trigger settings</Text>
-            <ToggleRow
-              title="Auto-detect CarPlay / Android Auto"
-              subtitle="The one checklist opened when your car connects"
-              value={autoDetect}
-              onToggle={setAutoDetect}
-            />
             {/* End-of-trip toggle is hidden for multi-stop mode — they don't have separate tabs */}
             {!isMultiStop && (
               <ToggleRow

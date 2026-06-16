@@ -144,10 +144,15 @@ class CarBluetoothModule : Module() {
         promise.reject("ERR_UNSUPPORTED", "CompanionDeviceManager needs Android 12+", null)
         return@AsyncFunction
       }
-      if (pendingAssociate != null) {
-        promise.reject("ERR_BUSY", "An association request is already in progress", null)
-        return@AsyncFunction
-      }
+      // A prior attempt can leave pendingAssociate set if the system picker was
+      // dismissed WITHOUT delivering an activity result (seen on some OEMs, and
+      // when there are no Bluetooth devices to list — onFailure doesn't fire
+      // either). The JS promise then hangs while the native flag stays set, so
+      // every later tap would hard-fail with ERR_BUSY until the process is
+      // killed. Rather than block, abandon the stale promise and start fresh so
+      // the picker is always reachable. ERR_CANCELLED is silenced by the JS
+      // caller, so abandoning a truly in-flight request is harmless.
+      pendingAssociate?.reject("ERR_CANCELLED", "Association restarted", null)
       pendingAssociate = promise
       startAssociation()
     }

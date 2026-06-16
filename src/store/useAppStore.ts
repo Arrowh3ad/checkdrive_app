@@ -55,7 +55,6 @@ const defaultChecklists: Checklist[] = [
     ],
     stops: [],
     isMultiStop: false,
-    autoDetect: true,
     geofenceEnabled: false,
     endOfTripEnabled: true,
     createdAt: new Date().toISOString(),
@@ -78,9 +77,6 @@ const defaultChecklists: Checklist[] = [
     ],
     stops: [],
     isMultiStop: false,
-    // Only one seed list is auto-detected (Daily commute) — the app picks the
-    // first autoDetect checklist, so multiple "Auto on" lists would be confusing.
-    autoDetect: false,
     geofenceEnabled: false,
     endOfTripEnabled: false,
     createdAt: new Date().toISOString(),
@@ -136,7 +132,6 @@ const defaultChecklists: Checklist[] = [
       },
     ],
     isMultiStop: true,
-    autoDetect: false,
     geofenceEnabled: false,
     endOfTripEnabled: false,
     createdAt: new Date().toISOString(),
@@ -230,7 +225,9 @@ export const useAppStore = create<AppStore>()(
         // flips true when the user owns the lifetime Pro unlock.
         isPro: false,
         totalTrips: 0,
-        defaultChecklistId: null,
+        // Seed the default to the first checklist (Daily commute) so a fresh
+        // install already has a sensible car checklist tied to connect/disconnect.
+        defaultChecklistId: 'cl-default-1',
         openChecklistOnConnect: false,
       },
       // Fresh installs are not connected until a real ACL event fires. (Was
@@ -245,22 +242,12 @@ export const useAppStore = create<AppStore>()(
         set((state) => {
           // Generate id and createdAt here so callers don't have to supply them.
           const created = { ...data, id: generateId(), createdAt: new Date().toISOString() };
-          // autoDetect is single-select: only one checklist is the auto-open pick.
-          // If the new list is auto-on, clear it on every existing list.
-          const existing = created.autoDetect
-            ? state.checklists.map((cl) => (cl.autoDetect ? { ...cl, autoDetect: false } : cl))
-            : state.checklists;
-          return { checklists: [...existing, created] };
+          return { checklists: [...state.checklists, created] };
         }),
 
       updateChecklist: (id, data) =>
         set((state) => ({
-          checklists: state.checklists.map((cl) => {
-            if (cl.id === id) return { ...cl, ...data };
-            // Single-select autoDetect: enabling it on one list clears the others.
-            if (data.autoDetect === true && cl.autoDetect) return { ...cl, autoDetect: false };
-            return cl;
-          }),
+          checklists: state.checklists.map((cl) => (cl.id === id ? { ...cl, ...data } : cl)),
         })),
 
       deleteChecklist: (id) =>
@@ -383,6 +370,26 @@ export const useAppStore = create<AppStore>()(
     {
       name: 'checkdrive-storage', // AsyncStorage key
       storage: createJSONStorage(() => AsyncStorage),
+
+      // Bumped to 1 for the autoDetect → defaultChecklistId consolidation. The
+      // per-checklist `autoDetect` flag was removed; "default checklist" is now
+      // the single concept. For older installs, adopt the first auto-on list as
+      // the default (only if the user hadn't already set one), then drop the
+      // now-defunct flag from every checklist.
+      version: 1,
+      migrate: (persisted: any) => {
+        if (persisted && Array.isArray(persisted.checklists)) {
+          const firstAuto = persisted.checklists.find((cl: any) => cl.autoDetect);
+          if (persisted.settings && !persisted.settings.defaultChecklistId && firstAuto) {
+            persisted.settings.defaultChecklistId = firstAuto.id;
+          }
+          persisted.checklists = persisted.checklists.map((cl: any) => {
+            const { autoDetect, ...rest } = cl;
+            return rest;
+          });
+        }
+        return persisted;
+      },
 
       // `partialize` controls which slices of state get written to disk.
       // `activeRuns` IS persisted now: an in-progress trip should survive an

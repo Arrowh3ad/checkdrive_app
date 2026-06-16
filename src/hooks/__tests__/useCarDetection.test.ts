@@ -64,7 +64,6 @@ function makeChecklist(over: Partial<Checklist> = {}): Checklist {
     endItems: [],
     stops: [],
     isMultiStop: false,
-    autoDetect: false,
     geofenceEnabled: false,
     endOfTripEnabled: false,
     createdAt: new Date().toISOString(),
@@ -92,7 +91,7 @@ beforeEach(() => {
 describe('connect → which checklist is "the trip"', () => {
   it('prefers the default checklist', async () => {
     useAppStore.setState({
-      checklists: [makeChecklist({ id: 'auto', autoDetect: true }), makeChecklist({ id: 'def' })],
+      checklists: [makeChecklist({ id: 'first' }), makeChecklist({ id: 'def' })],
     });
     useAppStore.setState({
       settings: { ...useAppStore.getState().settings, defaultChecklistId: 'def' },
@@ -103,14 +102,14 @@ describe('connect → which checklist is "the trip"', () => {
     expect(useAppStore.getState().lastTripChecklistId).toBe('def');
   });
 
-  it('falls back to the first auto-detect checklist when there is no default', async () => {
+  it('falls back to the first checklist when there is no default', async () => {
     useAppStore.setState({
-      checklists: [makeChecklist({ id: 'x', autoDetect: false }), makeChecklist({ id: 'auto', autoDetect: true })],
+      checklists: [makeChecklist({ id: 'first' }), makeChecklist({ id: 'other' })],
     });
 
     await simulateVehicleConnect();
 
-    expect(useAppStore.getState().lastTripChecklistId).toBe('auto');
+    expect(useAppStore.getState().lastTripChecklistId).toBe('first');
   });
 });
 
@@ -132,24 +131,27 @@ describe('connect → open-on-connect behavior', () => {
     expect(sendTripStartNotification).not.toHaveBeenCalled();
   });
 
-  it('opens Home when the toggle is on but the user is not Pro', async () => {
-    useAppStore.setState({ checklists: [makeChecklist({ id: 'c1', autoDetect: true })] });
+  it('does not auto-open for a non-Pro user (Pro-only) — notifies instead', async () => {
+    useAppStore.setState({ checklists: [makeChecklist({ id: 'c1' })] });
     useAppStore.setState({
       settings: {
         ...useAppStore.getState().settings,
         isPro: false,
-        openChecklistOnConnect: true,
+        openChecklistOnConnect: true, // stale flag — must be ignored without Pro
         defaultChecklistId: 'c1',
       },
     });
 
     await simulateVehicleConnect();
 
-    expect(navigationRef.navigate).toHaveBeenCalledWith('Home', undefined);
+    // Free users fall through to the actionable trip-start notification rather
+    // than being navigated anywhere.
+    expect(navigationRef.navigate).not.toHaveBeenCalled();
+    expect(sendTripStartNotification).toHaveBeenCalled();
   });
 
   it('only notifies (no navigation) when the toggle is off', async () => {
-    useAppStore.setState({ checklists: [makeChecklist({ id: 'c1', autoDetect: true })] });
+    useAppStore.setState({ checklists: [makeChecklist({ id: 'c1' })] });
 
     await simulateVehicleConnect();
 
@@ -159,17 +161,16 @@ describe('connect → open-on-connect behavior', () => {
 });
 
 describe('disconnect → back-seat reminder', () => {
-  it('fires for the most-recent trip even with NO Pro default (the bug we fixed)', async () => {
+  it('fires for the most-recent trip even with NO default set', async () => {
     const cl = makeChecklist({
       id: 'school',
       name: 'School run',
-      autoDetect: true,
       backSeatReminder: true,
       backSeatMessage: 'Check for the kids!',
     });
     useAppStore.setState({ checklists: [cl] }); // defaultChecklistId stays null
 
-    await simulateVehicleConnect(); // sets the trip to 'school' (first auto-detect)
+    await simulateVehicleConnect(); // sets the trip to 'school' (first checklist)
     await simulateVehicleDisconnect();
 
     expect(sendBackSeatNotification).toHaveBeenCalledWith('Check for the kids!', 'school');
@@ -180,7 +181,6 @@ describe('disconnect → back-seat reminder', () => {
     const cl = makeChecklist({
       id: 'c1',
       name: 'Commute',
-      autoDetect: true,
       endOfTripEnabled: true,
       endItems: [{ id: 'e1', label: 'Lock car' }],
     });
@@ -194,7 +194,7 @@ describe('disconnect → back-seat reminder', () => {
   });
 
   it('sends nothing when notifications are turned off', async () => {
-    const cl = makeChecklist({ id: 'c1', autoDetect: true, backSeatReminder: true });
+    const cl = makeChecklist({ id: 'c1', backSeatReminder: true });
     useAppStore.setState({ checklists: [cl] });
     useAppStore.setState({
       settings: { ...useAppStore.getState().settings, pushNotifications: false },

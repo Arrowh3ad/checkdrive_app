@@ -756,8 +756,8 @@ function NativeDetectSection() {
       <Text style={s.infoTitle}>Let CheckDrive watch your car’s Bluetooth</Text>
       <Text style={s.infoText}>
         Pick your car once and CheckDrive detects it directly — no AutomateIt or Shortcuts needed.
-        On connect you’ll get a notification (or the app opens, per “Open app on connect” in
-        Settings).
+        On connect you’ll get a “tap to run your checklist” notification (Pro can auto-open the
+        default list instead, via Settings).
       </Text>
 
       {car ? (
@@ -925,10 +925,10 @@ export function CarDetectionSetupScreen() {
                 <Text style={{ fontWeight: '600' }}>Show Alert action in step 2 </Text>
                 means the app only opens when you tap OK. Tap Cancel and nothing launches, so
                 it behaves like a dismissible prompt every time your car connects.{'\n\n'}
-                <Text style={{ fontWeight: '600' }}>Once it does open, by default it just
-                notifies </Text>— it won't drop you into a checklist. To jump straight into one
-                instead, turn on "Open app on connect" in Settings: Pro opens your default
-                checklist, free opens the home screen.{'\n\n'}
+                <Text style={{ fontWeight: '600' }}>Once it does open, it posts a "tap to run
+                your checklist" notification </Text>that deep-links into your list. Pro users can
+                turn on "Open my checklist on connect" in Settings to skip that and jump straight
+                into their default list instead.{'\n\n'}
                 <Text style={{ fontWeight: '600' }}>Want zero prompts (instant open)? </Text>
                 Skip the Show Alert step when building the shortcut and it'll open the moment
                 CarPlay connects.
@@ -1031,10 +1031,10 @@ export function CarDetectionSetupScreen() {
                 Yes — by design. The checkdrive:// link is a deep link, and opening the
                 app is exactly what a deep link does, so firing it directly always brings
                 CheckDrive to the foreground.{'\n\n'}
-                <Text style={{ fontWeight: '600' }}>By default it just posts a notification </Text>
-                once open — it won't drop you into a checklist. To open the app directly
-                instead, turn on "Open app on connect" in Settings: Pro opens your default
-                checklist, free opens the home screen.{'\n\n'}
+                <Text style={{ fontWeight: '600' }}>Once open, it posts a "tap to run your
+                checklist" notification </Text>that deep-links into your list. Pro users can turn
+                on "Open my checklist on connect" in Settings to jump straight into their default
+                list instead.{'\n\n'}
                 <Text style={{ fontWeight: '600' }}>Want it fully quiet (no app launch)? </Text>
                 Use the "Quieter: notification instead of opening" steps in the AutomateIt
                 section below — its Notification action shows an alert whose tap opens

@@ -50,7 +50,6 @@ export type Checklist = {
   stops: Stop[];                // populated only when isMultiStop === true
 
   isMultiStop: boolean;
-  autoDetect: boolean;          // included in the CarPlay auto-detection candidate pool
   geofenceEnabled: boolean;     // Pro feature: trigger when leaving a saved location
   endOfTripEnabled: boolean;    // shows the "End of trip" tab in ChecklistRunScreen
   // When true, disconnecting from the car fires a distinct, high-urgency
@@ -132,14 +131,16 @@ export type Settings = {
   bluetoothAutoDetect: boolean;
   isPro: boolean;
   totalTrips: number;
-  // Pro feature: when set, the CarPlay notification tap and the HomeScreen
-  // banner tap open this specific checklist instead of the first autoDetect one.
-  // `null` means "no default — use the first autoDetect checklist".
+  // The user's primary checklist. Free to set (marks it with a star and makes
+  // it the checklist tied to car connect/disconnect — trip-start notification
+  // naming and the back-seat / end-of-trip reminder). `null` means "no default
+  // — fall back to the first checklist". Pro additionally unlocks auto-opening
+  // this list on connect (see openChecklistOnConnect).
   defaultChecklistId: string | null;
   // When true, a car-connect trigger opens the default checklist immediately
-  // instead of only posting a notification. Default false: the gentler
-  // notification-only behavior (the app may still be foregrounded by the
-  // deep link itself, but it won't take over with a checklist).
+  // instead of only posting a notification. Jumping straight into the default
+  // is a Pro behavior; free users with this on just land on Home. Default
+  // false: the gentler notification-only behavior.
   openChecklistOnConnect: boolean;
 };
 

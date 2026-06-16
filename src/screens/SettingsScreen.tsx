@@ -3,9 +3,10 @@
 //
 // SECTIONS
 //   • Pro upgrade banner (free users) OR Pro-active status (Pro users)
-//   • Preferences — push notifications, BT auto-detect, open-on-connect, streaks
+//   • Preferences — push notifications, BT auto-detect, and (Pro only)
+//     open-my-checklist-on-connect
 //   • Car detection setup — link to the setup guide
-//   • Stats grid — total trips + day streak
+//   • Stats grid — total trips + checklist count
 //   • Version footer
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -89,13 +90,22 @@ export function SettingsScreen() {
             value={settings.bluetoothAutoDetect}
             onToggle={(v) => updateSettings({ bluetoothAutoDetect: v })}
           />
-          <View style={s.divider} />
-          <ToggleRow
-            title="Open app on connect"
-            subtitle="Open the app on connect, not just a notification"
-            value={settings.openChecklistOnConnect}
-            onToggle={(v) => updateSettings({ openChecklistOnConnect: v })}
-          />
+          {/* Pro-only: jumping straight into the default checklist on connect.
+              For free users the connect flow already posts an actionable "tap to
+              run your checklist" notification, so an "open" toggle would do
+              nothing useful (or worse — it'd suppress that notification and just
+              land them on Home). So we only surface it for Pro. */}
+          {settings.isPro && (
+            <>
+              <View style={s.divider} />
+              <ToggleRow
+                title="Open my checklist on connect"
+                subtitle="Jump straight into your default list when the car connects"
+                value={settings.openChecklistOnConnect}
+                onToggle={(v) => updateSettings({ openChecklistOnConnect: v })}
+              />
+            </>
+          )}
         </View>
 
 
