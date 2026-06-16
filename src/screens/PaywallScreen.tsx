@@ -51,6 +51,12 @@ const PERKS = [
   { icon: 'heart-outline', title: 'Support development', sub: 'A one-time thank-you' },
 ] as const;
 
+// ⚠️ TEMPORARY — REMOVE AFTER THE iOS IAP REVIEW SCREENSHOT.
+// Forces the buy state (price + Unlock button) even for an already-Pro account,
+// so we can screenshot the purchase screen for App Store Connect. Set back to
+// false (and remove this whole flag + its use below) before the next release.
+const FORCE_PAYWALL_PREVIEW = true;
+
 export function PaywallScreen() {
   const navigation = useNavigation();
   const isPro = useAppStore((s) => s.settings.isPro);
@@ -139,7 +145,7 @@ export function PaywallScreen() {
         </View>
 
         {/* Buy / states */}
-        {isPro ? (
+        {isPro && !FORCE_PAYWALL_PREVIEW ? (
           // Already Pro — show a confirmation instead of the buy button. (A
           // lifetime unlock can't be re-bought, so no purchase UI here.)
           <View style={s.activeBox}>
