@@ -148,7 +148,7 @@ export function PaywallScreen() {
             <Text style={s.activeSub}>
               You have lifetime access — thank you for your support!
             </Text>
-            <TouchableOpacity style={s.buyBtn} onPress={() => navigation.goBack()}>
+            <TouchableOpacity style={[s.buyBtn, s.doneBtn]} onPress={() => navigation.goBack()}>
               <Text style={s.buyBtnText}>Done</Text>
             </TouchableOpacity>
           </View>
@@ -263,6 +263,9 @@ const s = StyleSheet.create({
   unavailableText: { fontSize: 13, color: theme.colors.textSecondary, lineHeight: 19, textAlign: 'center' },
 
   activeBox: { alignItems: 'center', marginTop: 24, gap: 8 },
+  // Full-width Done button: without alignSelf the center-aligned activeBox would
+  // shrink it to the text width, leaving a tall, oddly-narrow button.
+  doneBtn: { alignSelf: 'stretch', marginTop: 8 },
   activeTitle: { fontSize: 18, fontWeight: '600', color: theme.colors.textPrimary, marginTop: 4 },
   activeSub: {
     fontSize: 13,
