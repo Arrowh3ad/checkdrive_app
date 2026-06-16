@@ -50,7 +50,7 @@
         "android.permission.REQUEST_COMPANION_USE_DATA_IN_BACKGROUND",
         "android.permission.POST_NOTIFICATIONS"
       ],
-      "versionCode": 12
+      "versionCode": 13
     },
     "web": {
       "favicon": "./assets/favicon.png"
