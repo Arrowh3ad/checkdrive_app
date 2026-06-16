@@ -32,11 +32,40 @@ export async function isSupported(): Promise<boolean> {
 
 // Opens the system "choose a device" picker and saves the choice as the watched
 // car. Resolves with the picked device; rejects if the user cancels.
+// NOTE: this runs a live discovery scan, so it only surfaces *discoverable*
+// devices — an already-paired car usually won't appear. Prefer
+// getBondedDevices() + setCar() for the common "my car is already paired" case;
+// this is kept as a fallback for genuinely unpaired devices.
 export async function associateCar(): Promise<CarDevice> {
   if (!available) {
     throw new Error('Native car detection is unavailable in this build');
   }
   return Native!.associate();
+}
+
+// The phone's already-paired Bluetooth devices. This is the reliable car
+// picker: a car used with Android Auto is always bonded, whereas associateCar()
+// (a discovery scan) won't show a paired, non-discoverable car. Returns [] when
+// native detection is unavailable or the permission hasn't been granted.
+export async function getBondedDevices(): Promise<CarDevice[]> {
+  if (!available) return [];
+  try {
+    return await Native!.getBondedDevices();
+  } catch {
+    return [];
+  }
+}
+
+// Save a chosen bonded device as the watched car (no system picker). Detection
+// via the manifest ACL receiver works off this saved address regardless of any
+// CDM association.
+export async function setCar(address: string, name?: string | null): Promise<void> {
+  if (!available) return;
+  try {
+    await Native!.setTarget(address, name ?? null);
+  } catch {
+    /* best-effort */
+  }
 }
 
 // All devices this app is associated with (survives restarts).

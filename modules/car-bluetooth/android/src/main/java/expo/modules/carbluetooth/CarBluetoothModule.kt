@@ -157,6 +157,32 @@ class CarBluetoothModule : Module() {
       startAssociation()
     }
 
+    // List the phone's already-paired (bonded) Bluetooth devices. This is the
+    // reliable way to pick a car: a car you use with Android Auto is always
+    // bonded, whereas the CDM associate() picker runs a live discovery scan that
+    // won't surface an already-paired, non-discoverable car. Needs
+    // BLUETOOTH_CONNECT (API 31+); we tolerate a SecurityException and return
+    // whatever we have so the UI can prompt for the permission.
+    AsyncFunction("getBondedDevices") {
+      val out = ArrayList<Map<String, Any?>>()
+      try {
+        val mgr = context.getSystemService(Context.BLUETOOTH_SERVICE) as android.bluetooth.BluetoothManager
+        val bonded = mgr.adapter?.bondedDevices ?: emptySet()
+        for (d in bonded) {
+          val name = try { d.name } catch (_: SecurityException) { null }
+          out.add(mapOf("address" to d.address?.uppercase(), "name" to name))
+        }
+      } catch (_: Exception) { /* return what we have (e.g. permission missing) */ }
+      out
+    }
+
+    // Save a chosen bonded device as the watched car, WITHOUT going through the
+    // CDM picker. The manifest ACL receiver fires off this saved address whether
+    // or not a CDM association exists, so this is sufficient for detection.
+    AsyncFunction("setTarget") { address: String, name: String? ->
+      CarPrefs.setTarget(context, address.uppercase(), name)
+    }
+
     // List devices already associated with this app (so the UI can show "your
     // car" across restarts even before any connect event).
     AsyncFunction("getAssociations") {

@@ -109,6 +109,8 @@ import {
   PermissionsAndroid,
   Alert,
   ActivityIndicator,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -649,6 +651,9 @@ function NativeDetectSection() {
   const [supported, setSupported] = useState<boolean | null>(null);
   const [car, setCar] = useState<CarDevice | null>(null);
   const [busy, setBusy] = useState(false);
+  // Paired-device picker: the list of bonded devices + whether the sheet is open.
+  const [bonded, setBonded] = useState<CarDevice[]>([]);
+  const [pickerVisible, setPickerVisible] = useState(false);
 
   // Probe support + load any previously-linked car on mount. `alive` guards
   // against setting state after unmount (the async calls can outlive the screen).
@@ -717,6 +722,51 @@ function NativeDetectSection() {
     }
   }
 
+  // Primary path: pick the car from the phone's already-paired devices. A car
+  // used with Android Auto is always bonded, so it's guaranteed to be in this
+  // list — unlike the CDM scan (handlePick), which won't show a paired,
+  // non-discoverable car.
+  async function handleChoosePaired() {
+    setBusy(true);
+    try {
+      const granted = await ensurePermissions();
+      if (!granted) {
+        Alert.alert(
+          'Permission needed',
+          'CheckDrive needs the Nearby devices / Bluetooth permission to see your paired car. ' +
+            'Enable it in Settings → Apps → CheckDrive → Permissions, then try again.'
+        );
+        return;
+      }
+      const devices = await CarBluetooth.getBondedDevices();
+      if (devices.length === 0) {
+        Alert.alert(
+          'No paired devices',
+          'Pair your phone with your car’s Bluetooth first (in your phone’s Bluetooth settings), ' +
+            'then come back and choose it here.'
+        );
+        return;
+      }
+      setBonded(devices);
+      setPickerVisible(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Save the chosen paired device as the watched car. Detection runs off this
+  // saved address via the manifest ACL receiver — no CDM association needed.
+  async function selectPaired(device: CarDevice) {
+    setPickerVisible(false);
+    await CarBluetooth.setCar(device.address, device.name);
+    setCar(device);
+    Alert.alert(
+      'Car linked',
+      `CheckDrive will now watch "${device.name ?? device.address}". Connect to it to test — ` +
+        'you should get a notification (or the app opens, per your settings).'
+    );
+  }
+
   function handleForget() {
     if (!car) return;
     Alert.alert('Forget this car?', `Stop watching "${car.name ?? car.address}"?`, [
@@ -755,9 +805,9 @@ function NativeDetectSection() {
       </View>
       <Text style={s.infoTitle}>Let CheckDrive watch your car’s Bluetooth</Text>
       <Text style={s.infoText}>
-        Pick your car once and CheckDrive detects it directly — no AutomateIt or Shortcuts needed.
-        On connect you’ll get a “tap to run your checklist” notification (Pro can auto-open the
-        default list instead, via Settings).
+        Pick your car once from your paired Bluetooth devices and CheckDrive detects it directly —
+        no AutomateIt or Shortcuts needed. On connect you’ll get a “tap to run your checklist”
+        notification (Pro can auto-open the default list instead, via Settings).
       </Text>
 
       {car ? (
@@ -775,7 +825,7 @@ function NativeDetectSection() {
           <View style={s.nativeBtnRow}>
             <TouchableOpacity
               style={[s.nativeBtn, s.nativeBtnGhost]}
-              onPress={handlePick}
+              onPress={handleChoosePaired}
               disabled={busy}
             >
               <Text style={s.nativeBtnGhostText}>Change car</Text>
@@ -790,17 +840,56 @@ function NativeDetectSection() {
           </View>
         </>
       ) : (
-        <TouchableOpacity style={s.nativeBtn} onPress={handlePick} disabled={busy}>
-          {busy ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <>
-              <Ionicons name="add-circle-outline" size={16} color="#fff" />
-              <Text style={s.nativeBtnText}>  Choose my car</Text>
-            </>
-          )}
-        </TouchableOpacity>
+        <>
+          <TouchableOpacity style={s.nativeBtn} onPress={handleChoosePaired} disabled={busy}>
+            {busy ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <>
+                <Ionicons name="bluetooth" size={16} color="#fff" />
+                <Text style={s.nativeBtnText}>  Choose from paired devices</Text>
+              </>
+            )}
+          </TouchableOpacity>
+          {/* Fallback for a car that isn't paired yet: the CDM discovery scan. */}
+          <TouchableOpacity onPress={handlePick} disabled={busy} style={s.scanLink}>
+            <Text style={s.scanLinkText}>Car not listed? Scan for a device</Text>
+          </TouchableOpacity>
+        </>
       )}
+
+      {/* Paired-device picker sheet. Tapping a row saves it as the watched car. */}
+      <Modal
+        visible={pickerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPickerVisible(false)}
+      >
+        <Pressable style={s.pickerBackdrop} onPress={() => setPickerVisible(false)}>
+          <Pressable style={s.pickerSheet} onPress={() => {}}>
+            <Text style={s.pickerTitle}>Choose your car</Text>
+            <Text style={s.pickerSub}>Pick it from your paired Bluetooth devices.</Text>
+            <ScrollView style={{ maxHeight: 320 }}>
+              {bonded.map((d, idx) => (
+                <TouchableOpacity
+                  key={d.address}
+                  style={[s.pickerRow, idx < bonded.length - 1 && s.pickerRowBorder]}
+                  onPress={() => selectPaired(d)}
+                >
+                  <Ionicons name="bluetooth" size={16} color={theme.colors.primaryDeep} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.pickerName}>{d.name ?? 'Unnamed device'}</Text>
+                    <Text style={s.pickerAddr}>{d.address}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={s.pickerCancel} onPress={() => setPickerVisible(false)}>
+              <Text style={s.pickerCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -1238,6 +1327,43 @@ const s = StyleSheet.create({
     paddingVertical: 3,
   },
   carLinkedPillText: { fontSize: 11, fontWeight: '600', color: theme.colors.primaryDeep },
+
+  // Secondary "scan instead" link under the primary paired-devices button.
+  scanLink: { alignItems: 'center', paddingVertical: 10, marginTop: 2 },
+  scanLinkText: { fontSize: 13, fontWeight: '500', color: theme.colors.primaryDeep },
+
+  // Paired-device picker (bottom sheet) — mirrors the HomeScreen ⋮ menu pattern.
+  pickerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  pickerSheet: {
+    backgroundColor: theme.colors.bgPrimary,
+    borderTopLeftRadius: theme.radius.lg,
+    borderTopRightRadius: theme.radius.lg,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.lg,
+    paddingBottom: theme.spacing.xxl,
+  },
+  pickerTitle: { fontSize: 16, fontWeight: '600', color: theme.colors.textPrimary },
+  pickerSub: { fontSize: 13, color: theme.colors.textSecondary, marginTop: 2, marginBottom: 8 },
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+  },
+  pickerRowBorder: { borderBottomWidth: 0.5, borderBottomColor: theme.colors.borderTertiary },
+  pickerName: { fontSize: 15, fontWeight: '500', color: theme.colors.textPrimary },
+  pickerAddr: {
+    fontSize: 12,
+    color: theme.colors.textTertiary,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    marginTop: 2,
+  },
+  pickerCancel: { alignItems: 'center', paddingVertical: 14, marginTop: 4 },
+  pickerCancelText: { fontSize: 15, fontWeight: '500', color: theme.colors.textSecondary },
 
   // Collapsible variant of noteCard: same color treatment, column layout so a
   // tappable header sits above an optional body. Default state is collapsed so

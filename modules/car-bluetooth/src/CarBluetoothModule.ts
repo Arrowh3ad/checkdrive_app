@@ -8,6 +8,10 @@ import { CarBluetoothEvents, CarDevice } from './CarBluetooth.types';
 declare class CarBluetoothModule extends NativeModule<CarBluetoothEvents> {
   isSupported(): Promise<boolean>;
   associate(): Promise<CarDevice>;
+  // Already-paired devices — the reliable car picker (see index.ts).
+  getBondedDevices(): Promise<CarDevice[]>;
+  // Save a chosen bonded device as the watched car (no CDM picker).
+  setTarget(address: string, name: string | null): Promise<void>;
   getAssociations(): Promise<CarDevice[]>;
   getTarget(): Promise<CarDevice | null>;
   forgetCar(address: string): Promise<void>;
