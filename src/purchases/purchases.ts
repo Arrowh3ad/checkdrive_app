@@ -39,15 +39,18 @@ if (Platform.OS !== 'web') {
   }
 }
 
-// Dev-only paywall mock. In Expo Go there's no native RevenueCat, so the paywall
-// would normally show its "purchases unavailable" state — useless for capturing
-// store screenshots. While __DEV__ we surface a fake lifetime package so the buy
-// screen renders and the Pro flow can be exercised without a real store. This is
-// never active in release builds (__DEV__ is false there).
-const DEV_MOCK = __DEV__ && !nativeAvailable;
-const DEV_MOCK_PRICE = '$4.99'; // shown on the dev paywall only — edit to taste
+// ⚠️ TEMPORARY — dummy paywall for store screenshots. The react-native-purchases
+// JS package is present in Expo Go (its `configure` is a JS function), so the
+// `nativeAvailable` probe above can read true even with no working native SDK —
+// which is why the real path returns "purchases unavailable" in Expo. To reliably
+// render the buy screen for screenshots we force a fake package whenever __DEV__
+// is on, checked BEFORE the native guards below. __DEV__ is false in release
+// builds so this can never ship — but REMOVE IT once screenshots are captured, so
+// it doesn't mask real RevenueCat in dev-client builds. (memory: checkdrive-temp-paywall-flag)
+const FORCE_DEV_PAYWALL = __DEV__;
+const DEV_MOCK_PRICE = '$4.99'; // shown on the dummy paywall only — edit to match your price
 
-export const purchasesAvailable = nativeAvailable || DEV_MOCK;
+export const purchasesAvailable = nativeAvailable || FORCE_DEV_PAYWALL;
 
 // The RevenueCat package identifier for the lifetime product. We look it up by
 // the SDK's standard LIFETIME package type, falling back to the first available
@@ -88,7 +91,7 @@ export async function initPurchases(): Promise<void> {
 
 // Fetch the lifetime package to display on the paywall, or null if unavailable.
 export async function getProOffering(): Promise<ProPackage | null> {
-  if (DEV_MOCK) {
+  if (FORCE_DEV_PAYWALL) {
     return { identifier: 'dev_lifetime', priceString: DEV_MOCK_PRICE, raw: null };
   }
   if (!nativeAvailable || !Purchases) return null;
@@ -115,7 +118,7 @@ export async function getProOffering(): Promise<ProPackage | null> {
 // Run the purchase. Returns true if Pro is now active. Throws on real errors so
 // the paywall can show a message; silently returns false on user cancellation.
 export async function purchasePro(pkg: ProPackage): Promise<boolean> {
-  if (DEV_MOCK) {
+  if (FORCE_DEV_PAYWALL) {
     useAppStore.getState().updateSettings({ isPro: true });
     return true;
   }
@@ -132,7 +135,7 @@ export async function purchasePro(pkg: ProPackage): Promise<boolean> {
 // Restore a previous purchase (new device / reinstall). Returns whether Pro is
 // active afterward.
 export async function restorePurchases(): Promise<boolean> {
-  if (DEV_MOCK) return useAppStore.getState().settings.isPro;
+  if (FORCE_DEV_PAYWALL) return useAppStore.getState().settings.isPro;
   if (!nativeAvailable || !Purchases) return false;
   try {
     const info = await Purchases.restorePurchases();
