@@ -38,8 +38,6 @@
 import { useEffect, useCallback } from 'react';
 import { Alert } from 'react-native';
 import * as Linking from 'expo-linking';
-import * as TaskManager from 'expo-task-manager';
-import * as BackgroundFetch from 'expo-background-fetch';
 import { useAppStore } from '../store/useAppStore';
 import {
   sendTripStartNotification,
@@ -48,21 +46,6 @@ import {
 } from './useNotifications';
 import { navigationRef } from '../navigation/navigationRef';
 import * as CarBluetooth from '../../modules/car-bluetooth';
-
-// A named constant for the background-fetch task so the same string is used in
-// both `defineTask` (module level) and `registerTaskAsync` (hook level).
-const BG_TASK = 'checkdrive-bg-check';
-
-// TaskManager.defineTask must be called at module level (outside any component
-// or hook), before the app registers the task. Expo's task manager requires the
-// definition to exist before `registerTaskAsync` is called.
-// Currently the task body is a no-op — the slot is reserved for future
-// logic (e.g. checking a geofence or polling BT state periodically).
-if (!TaskManager.isTaskDefined(BG_TASK)) {
-  TaskManager.defineTask(BG_TASK, async () => {
-    return BackgroundFetch.BackgroundFetchResult.NoData;
-  });
-}
 
 // ── Standalone simulation functions ──────────────────────────────────────────
 // These contain the full connect/disconnect logic and can be called from
@@ -271,25 +254,6 @@ export function useCarDetection() {
   useEffect(() => {
     void CarBluetooth.configure({ backSeatEnabled, backSeatMessage });
   }, [backSeatEnabled, backSeatMessage]);
-
-  // ── Background fetch registration ─────────────────────────────────────────
-  // Registers a background-fetch slot that iOS/Android can wake the app into
-  // periodically. The minimum interval is 15 minutes (iOS enforces this lower
-  // bound regardless of what you pass). Currently the task is a no-op; it
-  // exists to have the slot reserved so it can be filled with logic later
-  // without requiring an app update to re-register.
-  useEffect(() => {
-    BackgroundFetch.registerTaskAsync(BG_TASK, {
-      minimumInterval: 15 * 60, // 15 minutes (iOS minimum)
-      stopOnTerminate: false,   // keep the task running after the user force-quits
-      startOnBoot: true,        // re-register after device restart
-    }).catch(() => {});         // silently ignore if already registered
-
-    return () => {
-      // Unregister when the hook's owner unmounts (e.g. in tests or HMR).
-      BackgroundFetch.unregisterTaskAsync(BG_TASK).catch(() => {});
-    };
-  }, []);
 
   // Exposed so HomeScreen's Simulate button can trigger the same flow
   // without actually connecting a car — useful during development and testing.

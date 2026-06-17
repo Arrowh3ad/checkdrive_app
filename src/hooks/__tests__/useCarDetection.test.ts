@@ -29,15 +29,6 @@ jest.mock('../../../modules/car-bluetooth', () => ({
 }));
 
 // Expo runtime bits touched at import time — neutralize them.
-jest.mock('expo-task-manager', () => ({
-  isTaskDefined: jest.fn(() => true), // skip the module-level defineTask()
-  defineTask: jest.fn(),
-}));
-jest.mock('expo-background-fetch', () => ({
-  registerTaskAsync: jest.fn(),
-  unregisterTaskAsync: jest.fn(),
-  BackgroundFetchResult: { NoData: 'NoData' },
-}));
 jest.mock('expo-linking', () => ({
   getInitialURL: jest.fn(async () => null),
   addEventListener: jest.fn(() => ({ remove: jest.fn() })),

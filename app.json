@@ -15,9 +15,6 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.checkdrive.app",
       "infoPlist": {
-        "UIBackgroundModes": [
-          "fetch"
-        ],
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "CheckDrive needs access to your photos so you can set a custom photo as a checklist icon."
       }
@@ -65,8 +62,6 @@
           "defaultChannel": "default"
         }
       ],
-      "expo-background-fetch",
-      "expo-task-manager",
       "expo-font",
       [
         "react-native-google-mobile-ads",
