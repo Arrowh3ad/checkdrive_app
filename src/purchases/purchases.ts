@@ -39,18 +39,7 @@ if (Platform.OS !== 'web') {
   }
 }
 
-// ⚠️ TEMPORARY — dummy paywall for store screenshots. The react-native-purchases
-// JS package is present in Expo Go (its `configure` is a JS function), so the
-// `nativeAvailable` probe above can read true even with no working native SDK —
-// which is why the real path returns "purchases unavailable" in Expo. To reliably
-// render the buy screen for screenshots we force a fake package whenever __DEV__
-// is on, checked BEFORE the native guards below. __DEV__ is false in release
-// builds so this can never ship — but REMOVE IT once screenshots are captured, so
-// it doesn't mask real RevenueCat in dev-client builds. (memory: checkdrive-temp-paywall-flag)
-const FORCE_DEV_PAYWALL = __DEV__;
-const DEV_MOCK_PRICE = '$4.99'; // shown on the dummy paywall only — edit to match your price
-
-export const purchasesAvailable = nativeAvailable || FORCE_DEV_PAYWALL;
+export const purchasesAvailable = nativeAvailable;
 
 // The RevenueCat package identifier for the lifetime product. We look it up by
 // the SDK's standard LIFETIME package type, falling back to the first available
@@ -91,9 +80,6 @@ export async function initPurchases(): Promise<void> {
 
 // Fetch the lifetime package to display on the paywall, or null if unavailable.
 export async function getProOffering(): Promise<ProPackage | null> {
-  if (FORCE_DEV_PAYWALL) {
-    return { identifier: 'dev_lifetime', priceString: DEV_MOCK_PRICE, raw: null };
-  }
   if (!nativeAvailable || !Purchases) return null;
   try {
     const offerings = await Purchases.getOfferings();
@@ -118,10 +104,6 @@ export async function getProOffering(): Promise<ProPackage | null> {
 // Run the purchase. Returns true if Pro is now active. Throws on real errors so
 // the paywall can show a message; silently returns false on user cancellation.
 export async function purchasePro(pkg: ProPackage): Promise<boolean> {
-  if (FORCE_DEV_PAYWALL) {
-    useAppStore.getState().updateSettings({ isPro: true });
-    return true;
-  }
   if (!nativeAvailable || !Purchases) return false;
   try {
     const { customerInfo } = await Purchases.purchasePackage(pkg.raw);
@@ -135,7 +117,6 @@ export async function purchasePro(pkg: ProPackage): Promise<boolean> {
 // Restore a previous purchase (new device / reinstall). Returns whether Pro is
 // active afterward.
 export async function restorePurchases(): Promise<boolean> {
-  if (FORCE_DEV_PAYWALL) return useAppStore.getState().settings.isPro;
   if (!nativeAvailable || !Purchases) return false;
   try {
     const info = await Purchases.restorePurchases();
