@@ -25,6 +25,7 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -44,12 +45,19 @@ import { theme } from '../theme';
 const TERMS_URL = 'https://arrowh3ad.github.io/checkdrive-legal/terms.html';
 const PRIVACY_URL = 'https://arrowh3ad.github.io/checkdrive-legal/privacy.html';
 
-const PERKS = [
+type Perk = { icon: string; title: string; sub: string; androidOnly?: boolean };
+
+const PERKS: Perk[] = [
   { icon: 'infinite', title: 'Unlimited checklists', sub: 'Free plan is limited to 3' },
-  { icon: 'remove-circle-outline', title: 'No ads', sub: 'A clean, distraction-free app' },
+  // Ads only run on Android, so "No ads" is only a real perk there — hidden on iOS.
+  { icon: 'remove-circle-outline', title: 'No ads', sub: 'A clean, distraction-free app', androidOnly: true },
   { icon: 'star-outline', title: 'Auto-open on connect', sub: 'Jump straight into your default list when the car connects' },
   { icon: 'heart-outline', title: 'Support development', sub: 'A one-time thank-you' },
-] as const;
+];
+
+// Drop Android-only perks on other platforms (iOS is ad-free, so "No ads" would
+// be misleading there).
+const VISIBLE_PERKS = PERKS.filter((p) => !p.androidOnly || Platform.OS === 'android');
 
 
 export function PaywallScreen() {
@@ -126,8 +134,8 @@ export function PaywallScreen() {
 
         {/* Perks */}
         <View style={s.card}>
-          {PERKS.map((p, i) => (
-            <View key={p.title} style={[s.perkRow, i < PERKS.length - 1 && s.perkBorder]}>
+          {VISIBLE_PERKS.map((p, i) => (
+            <View key={p.title} style={[s.perkRow, i < VISIBLE_PERKS.length - 1 && s.perkBorder]}>
               <View style={s.perkIcon}>
                 <Ionicons name={p.icon as any} size={18} color={theme.colors.purple} />
               </View>
