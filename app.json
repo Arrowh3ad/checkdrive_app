@@ -16,9 +16,10 @@
       "bundleIdentifier": "com.checkdrive.app",
       "infoPlist": {
         "UIBackgroundModes": [
-          "fetch",
-          "remote-notification"
-        ]
+          "fetch"
+        ],
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "CheckDrive needs access to your photos so you can set a custom photo as a checklist icon."
       }
     },
     "android": {
