@@ -193,6 +193,17 @@ describe('disconnect → back-seat reminder', () => {
     expect(sendBackSeatNotification).not.toHaveBeenCalled();
   });
 
+  it('sends a multi-stop reminder on disconnect even with no end items / back-seat', async () => {
+    const cl = makeChecklist({ id: 'road', name: 'Road trip', isMultiStop: true });
+    useAppStore.setState({ checklists: [cl] });
+
+    await simulateVehicleConnect();    // trip becomes 'road' (first checklist)
+    await simulateVehicleDisconnect();
+
+    // Deep-links into the stop list (isMultiStop=true) instead of firing nothing.
+    expect(sendTripEndNotification).toHaveBeenCalledWith('Road trip', 'road', true);
+  });
+
   it('sends nothing when notifications are turned off', async () => {
     const cl = makeChecklist({ id: 'c1', backSeatReminder: true });
     useAppStore.setState({ checklists: [cl] });

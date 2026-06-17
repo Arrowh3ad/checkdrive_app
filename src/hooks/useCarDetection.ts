@@ -182,8 +182,16 @@ export async function simulateVehicleDisconnect(): Promise<void> {
     return;
   }
 
-  // Otherwise only send a reminder if the trip checklist has end-of-trip items —
-  // otherwise the notification has no useful destination.
+  // Multi-stop trips have no end-of-trip tab and empty endItems, so they'd
+  // otherwise fall through with no reminder at all. Deep-link into the stop list
+  // instead so the user can finish/review on arrival.
+  if (tripCl?.isMultiStop) {
+    await sendTripEndNotification(tripCl.name, tripCl.id, true);
+    return;
+  }
+
+  // Regular trips: only remind if there are arrival items to do — otherwise the
+  // notification has no useful destination.
   if (tripCl?.endOfTripEnabled && tripCl.endItems.length > 0) {
     await sendTripEndNotification(tripCl.name, tripCl.id);
   } else if (!tripCl) {

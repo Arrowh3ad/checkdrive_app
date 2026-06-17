@@ -100,17 +100,23 @@ export async function sendTripStartNotification(
 export async function sendTripEndNotification(
   checklistName?: string,
   checklistId?: string,
+  isMultiStop?: boolean,
 ): Promise<void> {
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: 'Trip ended — check your arrival items',
+      // Multi-stop trips have no separate arrival tab — the destination is the
+      // stop list itself, so word it as "review your stops" instead.
+      title: isMultiStop ? 'Trip ended — review your stops' : 'Trip ended — check your arrival items',
       body: checklistName
-        ? `Don't forget your "${checklistName}" end-of-trip checklist`
-        : 'Open CheckDrive to complete your end-of-trip checklist',
+        ? isMultiStop
+          ? `Tap to finish your "${checklistName}" stops`
+          : `Don't forget your "${checklistName}" end-of-trip checklist`
+        : 'Open CheckDrive to complete your checklist',
       data: {
         trigger: 'car-disconnect',
         checklistId: checklistId ?? null,
-        isMultiStop: false,
+        // Routed by App.tsx: true → opens the MultiStop screen on tap.
+        isMultiStop: isMultiStop ?? false,
       },
       sound: true,
     },
