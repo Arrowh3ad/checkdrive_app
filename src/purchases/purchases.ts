@@ -39,7 +39,15 @@ if (Platform.OS !== 'web') {
   }
 }
 
-export const purchasesAvailable = nativeAvailable;
+// Dev-only paywall mock. In Expo Go there's no native RevenueCat, so the paywall
+// would normally show its "purchases unavailable" state — useless for capturing
+// store screenshots. While __DEV__ we surface a fake lifetime package so the buy
+// screen renders and the Pro flow can be exercised without a real store. This is
+// never active in release builds (__DEV__ is false there).
+const DEV_MOCK = __DEV__ && !nativeAvailable;
+const DEV_MOCK_PRICE = '$4.99'; // shown on the dev paywall only — edit to taste
+
+export const purchasesAvailable = nativeAvailable || DEV_MOCK;
 
 // The RevenueCat package identifier for the lifetime product. We look it up by
 // the SDK's standard LIFETIME package type, falling back to the first available
@@ -80,6 +88,9 @@ export async function initPurchases(): Promise<void> {
 
 // Fetch the lifetime package to display on the paywall, or null if unavailable.
 export async function getProOffering(): Promise<ProPackage | null> {
+  if (DEV_MOCK) {
+    return { identifier: 'dev_lifetime', priceString: DEV_MOCK_PRICE, raw: null };
+  }
   if (!nativeAvailable || !Purchases) return null;
   try {
     const offerings = await Purchases.getOfferings();
@@ -104,6 +115,10 @@ export async function getProOffering(): Promise<ProPackage | null> {
 // Run the purchase. Returns true if Pro is now active. Throws on real errors so
 // the paywall can show a message; silently returns false on user cancellation.
 export async function purchasePro(pkg: ProPackage): Promise<boolean> {
+  if (DEV_MOCK) {
+    useAppStore.getState().updateSettings({ isPro: true });
+    return true;
+  }
   if (!nativeAvailable || !Purchases) return false;
   try {
     const { customerInfo } = await Purchases.purchasePackage(pkg.raw);
@@ -117,6 +132,7 @@ export async function purchasePro(pkg: ProPackage): Promise<boolean> {
 // Restore a previous purchase (new device / reinstall). Returns whether Pro is
 // active afterward.
 export async function restorePurchases(): Promise<boolean> {
+  if (DEV_MOCK) return useAppStore.getState().settings.isPro;
   if (!nativeAvailable || !Purchases) return false;
   try {
     const info = await Purchases.restorePurchases();

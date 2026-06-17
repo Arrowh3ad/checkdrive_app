@@ -135,6 +135,21 @@ export function SettingsScreen() {
           </View>
         </View>
 
+        {/* Developer-only controls. __DEV__ is false in release builds, so this
+            whole block is stripped from anything shipped to the stores. Lets us
+            flip Pro on/off in Expo to screenshot the paywall vs. the Pro state. */}
+        {__DEV__ && (
+          <View style={s.card}>
+            <Text style={s.cardLabel}>Developer (dev builds only)</Text>
+            <ToggleRow
+              title="Pro entitlement"
+              subtitle="Toggle Pro for paywall / Pro-state screenshots"
+              value={settings.isPro}
+              onToggle={(v) => updateSettings({ isPro: v })}
+            />
+          </View>
+        )}
+
         <Text style={s.version}>CheckDrive v1.0.0</Text>
       </ScrollView>
     </SafeAreaView>

@@ -47,6 +47,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../store/useAppStore';
+import { maybeRequestReview } from '../reviews/appReview';
 import { theme } from '../theme';
 import { RootStackParamList, Stop, TripLogItem, ActiveRun } from '../types';
 
@@ -201,7 +202,15 @@ export function MultiStopScreen() {
     // next open starts fresh at the first stop.
     clearActiveRun(checklist.id);
     Alert.alert('Trip complete!', 'All stops checked off.', [
-      { text: 'Done', onPress: () => navigation.goBack() },
+      {
+        text: 'Done',
+        onPress: () => {
+          navigation.goBack();
+          // Multi-stop completion shows no interstitial, so it's safe to ask for
+          // a review here directly. One-time and self-gating (see appReview).
+          maybeRequestReview();
+        },
+      },
     ]);
   }
 

@@ -231,6 +231,7 @@ export const useAppStore = create<AppStore>()(
         // install already has a sensible car checklist tied to connect/disconnect.
         defaultChecklistId: 'cl-default-1',
         openChecklistOnConnect: false,
+        reviewRequested: false,
       },
       // Fresh installs are not connected until a real ACL event fires. (Was
       // seeded `true` for demos, which both mis-showed "connected" on the Home

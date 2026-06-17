@@ -51,6 +51,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../store/useAppStore';
 import { maybeShowInterstitial } from '../ads/interstitial';
+import { maybeRequestReview } from '../reviews/appReview';
 import { theme } from '../theme';
 import { RootStackParamList, ActiveRun } from '../types';
 
@@ -282,7 +283,11 @@ export function ChecklistRunScreen() {
           // Natural break: try an interstitial after returning Home. Self-gates
           // (non-Pro, Android, not driving) and frequency-caps internally, so
           // most completions won't show one.
-          maybeShowInterstitial();
+          const showedAd = maybeShowInterstitial();
+          // Only ask for a review when we DIDN'T just show an ad, so the rating
+          // prompt never stacks on top of an interstitial. It's one-time and
+          // self-gating, so it'll land on a later ad-free completion otherwise.
+          if (!showedAd) maybeRequestReview();
         },
       },
     ]);

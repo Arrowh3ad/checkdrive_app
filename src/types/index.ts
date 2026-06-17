@@ -142,6 +142,10 @@ export type Settings = {
   // is a Pro behavior; free users with this on just land on Home. Default
   // false: the gentler notification-only behavior.
   openChecklistOnConnect: boolean;
+  // Set true once the in-app "rate this app" prompt has been requested, so it
+  // only ever fires once. (Missing on older persisted installs → treated as
+  // false, which is correct — they just become eligible at the trip threshold.)
+  reviewRequested: boolean;
 };
 
 // The navigation param map consumed by React Navigation's `createNativeStackNavigator`.
