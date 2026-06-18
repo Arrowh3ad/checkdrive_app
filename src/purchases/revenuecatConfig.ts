@@ -16,8 +16,8 @@ import { Platform } from 'react-native';
 // ship in the app binary.
 export const REVENUECAT_ANDROID_KEY = 'goog_fxwFsyzQJHQdcyQPpriKlBNEYhD';
 
-// iOS key — left blank until the App Store phase; iOS purchases stay disabled.
-export const REVENUECAT_IOS_KEY = '';
+// Public iOS SDK key from RevenueCat (App Store app). Public = safe to ship.
+export const REVENUECAT_IOS_KEY = 'appl_DIkphqoboYZEMXtSSTLsJIKCNtM';
 
 // The entitlement identifier configured in the RevenueCat dashboard.
 export const ENTITLEMENT_ID = 'pro';
