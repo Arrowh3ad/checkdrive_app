@@ -66,9 +66,13 @@ const linking = {
       MultiStop: 'multistop/:checklistId',
       NewChecklist: 'new',
       Settings: 'settings',
-      // `trigger` is a special path with no corresponding screen — it's caught
-      // by useCarDetection's Linking listener before navigation happens.
-      CarDetectionSetup: 'trigger',
+      // NOTE: `trigger` and `disconnect` are deliberately NOT mapped to any
+      // screen. They're the car connect/disconnect deep links, handled by
+      // useCarDetection's raw Linking listener (which fires the notification /
+      // open-on-connect flow). Mapping `trigger` to a screen (it used to point
+      // at CarDetectionSetup) made the link navigate there with no back stack —
+      // a dead-end. CarDetectionSetup is reached in-app only, so it needs no
+      // deep-link path.
     },
   },
 };
