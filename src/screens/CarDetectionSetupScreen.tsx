@@ -130,95 +130,62 @@ import type { CarDevice } from '../../modules/car-bluetooth';
 
 // ── Step data ─────────────────────────────────────────────────────────────────
 
-// iOS connect — two-shortcut method, with the recommended "ask first" prompt.
-// Steps 1–5 build the shortcut (Show Alert → URL → Open URLs); steps 6–8 wire
-// it to the CarPlay automation. The Show Alert action (step 2) is what makes
-// the app prompt-before-opening instead of barging in; skipping it makes the
-// app open instantly.
+// iOS connect — the prebuilt "Start CheckDrive" shortcut is added in one tap via
+// the iCloud link (button above the steps), so the only manual work left is
+// wiring the CarPlay automation. (The old 1–5 "build the shortcut by hand" steps
+// are gone — the share link replaces them.)
 const IOS_CONNECT_STEPS = [
   {
     n: '1',
-    title: 'Open Shortcuts → tap "+" to create a new shortcut',
+    title: 'Tap "Add the Enter car shortcut" above',
     detail:
-      'Go to the "My Shortcuts" tab (not Automation). Tap the "+" button in the top-right corner to create a new blank shortcut.',
+      'That adds the ready-made "Start CheckDrive" shortcut in one tap — no building it by hand. ' +
+      'iOS may show an "untrusted shortcut" review; that\'s normal, scroll down and tap "Add Shortcut".',
   },
   {
     n: '2',
-    title: 'Add a "Show Alert" action — this is the "ask first" prompt',
+    title: 'Shortcuts → Automation tab → "+" → New Automation → CarPlay → "Is Connected"',
     detail:
-      'Tap "Add Action" → search "Show Alert" (Scripting) → add it. Set the message to ' +
-      'e.g. "Start your CheckDrive checklist?" and keep "Show Cancel Button" ON: OK opens ' +
-      'the app, Cancel dismisses. Prefer no prompt? Just skip this step.',
+      'Switch to the Automation tab (not My Shortcuts). Tap "+" → "New Automation", scroll the ' +
+      'trigger list to "CarPlay", and choose "Is Connected".',
   },
   {
     n: '3',
-    title: 'Tap "Add Action" → search "URL" → type checkdrive://trigger',
+    title: 'Add Action → "Run Shortcut" → choose "Start CheckDrive"',
     detail:
-      'Search for "URL" (it\'s in the Web category), add it, then type the deep link: ' +
-      'checkdrive://trigger',
+      'Tap "Add Action", search "Run Shortcut", add it, then tap the Shortcut placeholder and pick ' +
+      '"Start CheckDrive" (the one you just added).',
   },
   {
     n: '4',
-    title: 'Tap "Add Action" again → search "Open URLs" → add it',
+    title: 'Turn off "Ask Before Running" → Done',
     detail:
-      '"Open URLs" auto-uses the URL above. Order should read: Show Alert → URL → Open ' +
-      'URLs, so the app opens only after you tap OK.',
-  },
-  {
-    n: '5',
-    title: 'Name the shortcut "Start CheckDrive" → tap Done',
-    detail:
-      'Tap the title at the top to rename it, then Done. Run it once to test: you should ' +
-      'see the alert, and OK should open CheckDrive.',
-  },
-  {
-    n: '6',
-    title: 'Go to Automation tab → "+" → New Automation → CarPlay',
-    detail:
-      'Switch to the Automation tab. Tap "+" → "New Automation". Scroll through the trigger list to find "CarPlay", then select "Is Connected".',
-  },
-  {
-    n: '7',
-    title: 'Tap "Add Action" → search "Run Shortcut" → select "Start CheckDrive"',
-    detail:
-      'Tap "Add Action" inside the automation editor. Search for "Run Shortcut", add it, then tap the "Shortcut" placeholder and choose "Start CheckDrive" from your shortcuts list.',
-  },
-  {
-    n: '8',
-    title: 'Turn off "Ask Before Running" → tap Done',
-    detail:
-      'Toggle off "Ask Before Running" (and "Notify When Run" if shown). The automation ' +
-      'runs silently, but your Show Alert still prompts on each connect.',
+      'Toggle off "Ask Before Running" (and "Notify When Run" if shown) so the automation fires ' +
+      'silently. The shortcut still shows its own quick "open CheckDrive?" prompt on each connect ' +
+      '(unless you used the instant-open version).',
   },
 ];
 
-// iOS disconnect — same two-shortcut pattern but with the disconnect URL
-// and the "Is Disconnected" trigger. Kept shorter since the user already
-// understands the pattern from the connect setup above.
+// iOS disconnect — same shape: add the prebuilt "Stop CheckDrive" shortcut via
+// the link, then wire the "Is Disconnected" automation.
 const IOS_DISCONNECT_STEPS = [
   {
     n: '1',
-    title: 'Open Shortcuts → tap "+" to create another new shortcut',
+    title: 'Tap "Add the Exit car shortcut" above',
     detail:
-      'Same as before — go to "My Shortcuts" tab, tap "+". This shortcut will send the disconnect signal.',
+      'Adds the ready-made "Stop CheckDrive" shortcut. Same "Add Shortcut" review as before.',
   },
   {
     n: '2',
-    title: 'Add "URL" action → type checkdrive://disconnect → add "Open URLs"',
+    title: 'Automation tab → "+" → New Automation → CarPlay → "Is Disconnected"',
     detail:
-      'Same two-action pattern: URL action with checkdrive://disconnect, then Open URLs. Name the shortcut "Stop CheckDrive" and tap Done.',
+      'Same as the connect automation, but pick "Is Disconnected" as the CarPlay trigger.',
   },
   {
     n: '3',
-    title: 'Automation tab → "+" → New Automation → CarPlay → Is Disconnected',
+    title: 'Add Action → "Run Shortcut" → "Stop CheckDrive" → turn off "Ask Before Running" → Done',
     detail:
-      'Same flow as the connect automation, but choose "Is Disconnected" as the CarPlay trigger instead of "Is Connected".',
-  },
-  {
-    n: '4',
-    title: 'Add Action → "Run Shortcut" → select "Stop CheckDrive" → turn off "Ask Before Running" → Done',
-    detail:
-      'CheckDrive will now send an arrival reminder notification whenever CarPlay unplugs, so you don\'t forget your end-of-trip checklist.',
+      'CheckDrive will now post your arrival / back-seat reminder whenever CarPlay disconnects.',
   },
 ];
 
@@ -955,18 +922,18 @@ export function CarDetectionSetupScreen() {
               <Text style={s.nativeBtnText}>  Add the "Enter car" shortcut</Text>
             </TouchableOpacity>
             <Text style={s.urlHint}>
-              Fastest path — adds the ready-made shortcut so you can skip building it by hand
-              (steps 1–5 below). iOS may show an "untrusted shortcut" review — that's normal, tap
-              Add Shortcut. Then just wire the automation (steps 6–8).
+              Fastest path — adds the ready-made shortcut in one tap (no building it by hand). iOS
+              may show an "untrusted shortcut" review; that's normal, tap Add Shortcut. Then wire
+              the automation in the steps below.
             </Text>
 
-            <Collapsible title="Why a shortcut, and what's the alert for?">
+            <Collapsible title="Why a shortcut, and does it interrupt me?">
               <Text style={s.noteText}>
-                On iOS 17+ / 18, CarPlay automations don't show "Open URLs" directly, so steps
-                1–5 build a standalone shortcut and steps 6–8 wire it to CarPlay.{'\n\n'}
-                The Show Alert action (step 2) is the recommended touch: the automation fires
-                silently, but the alert pops up so the app only opens when you tap OK — no more
-                barging in every time you connect. Prefer instant open? Skip step 2.
+                iOS won't let a CarPlay automation open an app directly, so it runs a tiny shortcut
+                that does. The ready-made "Enter car" shortcut shows a quick "Open CheckDrive?"
+                prompt when you connect — tap OK to open, or dismiss it — so it never just barges
+                in. (Want it to open instantly with no prompt? Use the instant-open version of the
+                shortcut.)
               </Text>
             </Collapsible>
 
@@ -977,7 +944,7 @@ export function CarDetectionSetupScreen() {
               <View style={s.urlRow}>
                 <Text style={s.urlText} selectable>checkdrive://trigger</Text>
               </View>
-              <Text style={s.urlHint}>Long-press to copy · Paste this into the URL action</Text>
+              <Text style={s.urlHint}>The ready-made shortcut already uses this — shown for reference / troubleshooting.</Text>
             </View>
 
             <Text style={s.sectionLabel}>Disconnect automation</Text>
@@ -997,9 +964,9 @@ export function CarDetectionSetupScreen() {
             <View style={s.noteCard}>
               <Ionicons name="information-circle" size={16} color={theme.colors.primary} />
               <Text style={s.noteText}>
-                Same two-shortcut approach as above, but with "Is Disconnected" as the trigger
-                and checkdrive://disconnect as the URL. Without this, the arrival reminder
-                notification won't fire automatically when you unplug CarPlay.
+                Same as connect, but choose "Is Disconnected" as the trigger and run the
+                "Stop CheckDrive" shortcut. Without it, the arrival / back-seat reminder won't fire
+                automatically when you unplug.
               </Text>
             </View>
 
@@ -1010,7 +977,7 @@ export function CarDetectionSetupScreen() {
               <View style={s.urlRow}>
                 <Text style={s.urlText} selectable>checkdrive://disconnect</Text>
               </View>
-              <Text style={s.urlHint}>Long-press to copy · Paste this into the URL action</Text>
+              <Text style={s.urlHint}>The ready-made shortcut already uses this — shown for reference / troubleshooting.</Text>
             </View>
 
             {/* iOS notification options + the deep-link-opens-app reality,
@@ -1019,18 +986,15 @@ export function CarDetectionSetupScreen() {
 
             <Collapsible title="Will this open the app every time?">
               <Text style={s.noteText}>
-                Only if you skip the Show Alert step. A deep link always opens the app on
-                iOS — that part can't be changed — but the{' '}
-                <Text style={{ fontWeight: '600' }}>Show Alert action in step 2 </Text>
-                means the app only opens when you tap OK. Tap Cancel and nothing launches, so
-                it behaves like a dismissible prompt every time your car connects.{'\n\n'}
-                <Text style={{ fontWeight: '600' }}>Once it does open, it posts a "tap to run
-                your checklist" notification </Text>that deep-links into your list. Pro users can
-                turn on "Open my checklist on connect" in Settings to skip that and jump straight
-                into their default list instead.{'\n\n'}
+                A deep link always opens the app on iOS — that part can't be changed — but the
+                ready-made shortcut shows a quick "Open CheckDrive?" prompt first, so the app only
+                opens when you tap OK. Tap Cancel and nothing launches.{'\n\n'}
+                <Text style={{ fontWeight: '600' }}>Once it opens, it posts a "tap to run your
+                checklist" notification </Text>that deep-links into your list. Pro users can turn on
+                "Open my checklist on connect" in Settings to skip that and jump straight into their
+                default list instead.{'\n\n'}
                 <Text style={{ fontWeight: '600' }}>Want zero prompts (instant open)? </Text>
-                Skip the Show Alert step when building the shortcut and it'll open the moment
-                CarPlay connects.
+                Use the instant-open version of the shortcut instead of the ask-first one.
               </Text>
             </Collapsible>
 
@@ -1051,7 +1015,7 @@ export function CarDetectionSetupScreen() {
 
             <Collapsible title="Fully passive: banner only, no app (limited)">
               <Text style={s.noteText}>
-                <Text style={{ fontWeight: '600' }}>The Show Alert flow above is the better
+                <Text style={{ fontWeight: '600' }}>The ask-first shortcut above is the better
                 way </Text>to get a dismissible prompt, because its OK button actually opens
                 your checklist. This Show Notification path is only for a fully passive banner:
                 it posts a reminder without opening CheckDrive, but iOS won't let that banner
