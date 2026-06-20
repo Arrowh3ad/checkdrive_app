@@ -123,6 +123,25 @@ export function SettingsScreen() {
           </View>
         </TouchableOpacity>
 
+        {/* ── Replay tutorial ──────────────────────────────────────────────── */}
+        {/* Flips onboardingSeen back off; the Onboarding intro is rendered on
+            Home gated on that flag, so bouncing there re-shows it. */}
+        <TouchableOpacity
+          style={s.card}
+          onPress={() => {
+            updateSettings({ onboardingSeen: false });
+            (navigation as any).navigate('Home');
+          }}
+        >
+          <View style={s.setupRow}>
+            <View>
+              <Text style={s.setupTitle}>Replay tutorial</Text>
+              <Text style={s.setupSub}>See the welcome intro again</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={theme.colors.textTertiary} />
+          </View>
+        </TouchableOpacity>
+
         {/* ── Stats grid ───────────────────────────────────────────────────── */}
         <View style={s.statGrid}>
           <View style={s.statCard}>
