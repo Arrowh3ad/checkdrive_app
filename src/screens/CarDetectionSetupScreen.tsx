@@ -111,11 +111,19 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme';
+
+// Prebuilt iCloud Shortcut links — tapping one opens Shortcuts and adds the
+// ready-made "Open URL checkdrive://…" shortcut, so users skip building it by
+// hand (steps 1–5). The CarPlay automation still has to be wired manually
+// (personal automations can't be shared via link).
+const SHORTCUT_CONNECT_URL = 'https://www.icloud.com/shortcuts/7b126e4f25e44f7291e349dc47f9a93e';
+const SHORTCUT_DISCONNECT_URL = 'https://www.icloud.com/shortcuts/9bc4c25822234379bb70daee3fda9484';
 import { simulateVehicleConnect, simulateVehicleDisconnect } from '../hooks/useCarDetection';
 import * as CarBluetooth from '../../modules/car-bluetooth';
 import type { CarDevice } from '../../modules/car-bluetooth';
@@ -897,12 +905,12 @@ function NativeDetectSection() {
 export function CarDetectionSetupScreen() {
   const navigation = useNavigation();
 
-  // Union type `'ios' | 'android'` constrains the tab state to exactly those
-  // two strings — TypeScript will error if anything else is assigned.
-  // Default to the current platform so the right instructions show first.
-  const [tab, setTab] = useState<'ios' | 'android'>(
-    Platform.OS === 'android' ? 'android' : 'ios'
-  );
+  // Show ONLY the current platform's instructions. We deliberately don't expose
+  // the other platform's steps: an iPhone user can't set up Android detection on
+  // their device, and surfacing "install from Google Play" / Android Auto inside
+  // the iOS app is both useless UX and an App Store review risk (references to
+  // another mobile platform). Each section below is gated on Platform.OS.
+  const isIOS = Platform.OS === 'ios';
 
   return (
     <SafeAreaView style={s.safe}>
@@ -916,51 +924,41 @@ export function CarDetectionSetupScreen() {
           <Text style={s.title}>Car Detection Setup</Text>
         </View>
 
-        {/* Explanation card — answers "why can't the app do this automatically?" */}
+        {/* Explanation card — answers "why can't the app do this automatically?"
+            Platform-specific so the iOS copy never references Android Auto. */}
         <View style={s.card}>
           <Text style={s.infoTitle}>Why can't the app detect my car automatically?</Text>
           <Text style={s.infoText}>
-            Apple restricts CarPlay SDK access to approved app categories (navigation, audio,
-            etc.). Android Auto has similar restrictions for background apps. The safest
-            cross-platform solution is to wire up a one-time automation using your OS's built-in
-            tools — it takes about 5 minutes and works reliably.
+            {isIOS
+              ? "Apple restricts CarPlay SDK access to approved app categories (navigation, " +
+                "audio, etc.). The safest solution is to wire up a one-time Shortcuts " +
+                "automation — it takes about 5 minutes and works reliably."
+              : "Android restricts background access to car-connection events. The safest " +
+                "option is to let CheckDrive watch your car's Bluetooth directly, or wire up a " +
+                "one-time automation — it takes about 5 minutes and works reliably."}
           </Text>
         </View>
 
-        {/* Platform tabs — same segmented-control pattern used in ChecklistRunScreen */}
-        <View style={s.tabs}>
-          <TouchableOpacity
-            style={[s.tab, tab === 'ios' && s.tabActive]}
-            onPress={() => setTab('ios')}
-          >
-            <Ionicons
-              name="logo-apple"
-              size={14}
-              color={tab === 'ios' ? theme.colors.textPrimary : theme.colors.textSecondary}
-            />
-            <Text style={[s.tabText, tab === 'ios' && s.tabTextActive]}>iOS (Shortcuts)</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.tab, tab === 'android' && s.tabActive]}
-            onPress={() => setTab('android')}
-          >
-            <Ionicons
-              name="logo-android"
-              size={14}
-              color={tab === 'android' ? theme.colors.textPrimary : theme.colors.textSecondary}
-            />
-            <Text style={[s.tabText, tab === 'android' && s.tabTextActive]}>
-              Android
-            </Text>
-          </TouchableOpacity>
-        </View>
-
         {/* ──────────────────────────────────────────────────────────────────
-            iOS tab — single tool (Shortcuts), connect/disconnect as sections
+            iOS — single tool (Shortcuts), connect/disconnect as sections.
+            Only ever rendered on iOS devices.
             ────────────────────────────────────────────────────────────── */}
-        {tab === 'ios' && (
+        {isIOS && (
           <>
             <Text style={s.sectionLabel}>Connect automation</Text>
+
+            <TouchableOpacity
+              style={s.nativeBtn}
+              onPress={() => Linking.openURL(SHORTCUT_CONNECT_URL)}
+            >
+              <Ionicons name="add-circle-outline" size={16} color="#fff" />
+              <Text style={s.nativeBtnText}>  Add the "Enter car" shortcut</Text>
+            </TouchableOpacity>
+            <Text style={s.urlHint}>
+              Fastest path — adds the ready-made shortcut so you can skip building it by hand
+              (steps 1–5 below). iOS may show an "untrusted shortcut" review — that's normal, tap
+              Add Shortcut. Then just wire the automation (steps 6–8).
+            </Text>
 
             <Collapsible title="Why a shortcut, and what's the alert for?">
               <Text style={s.noteText}>
@@ -983,6 +981,18 @@ export function CarDetectionSetupScreen() {
             </View>
 
             <Text style={s.sectionLabel}>Disconnect automation</Text>
+
+            <TouchableOpacity
+              style={s.nativeBtn}
+              onPress={() => Linking.openURL(SHORTCUT_DISCONNECT_URL)}
+            >
+              <Ionicons name="add-circle-outline" size={16} color="#fff" />
+              <Text style={s.nativeBtnText}>  Add the "Exit car" shortcut</Text>
+            </TouchableOpacity>
+            <Text style={s.urlHint}>
+              Adds the ready-made disconnect shortcut. Then wire it to the "Is Disconnected"
+              automation, same as connect.
+            </Text>
 
             <View style={s.noteCard}>
               <Ionicons name="information-circle" size={16} color={theme.colors.primary} />
@@ -1055,11 +1065,12 @@ export function CarDetectionSetupScreen() {
         )}
 
         {/* ──────────────────────────────────────────────────────────────────
-            Android tab — three tools, each in its own dropdown. Common pieces
+            Android — three tools, each in its own dropdown. Common pieces
             (intro, warning, copyable URLs, permissions) are pulled to the top
-            so the user sees them without having to open every dropdown.
+            so the user sees them without having to open every dropdown. Only
+            ever rendered on Android devices (never exposed in the iOS app).
             ────────────────────────────────────────────────────────────── */}
-        {tab === 'android' && (
+        {!isIOS && (
           <>
             {/* Recommended path: native CDM detection, no third-party app.
                 Renders itself conditionally based on device support. */}
