@@ -52,6 +52,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../store/useAppStore';
 import { maybeShowInterstitial } from '../ads/interstitial';
 import { maybeRequestReview } from '../reviews/appReview';
+import { computeTripScore } from '../utils/score';
 import { theme } from '../theme';
 import { RootStackParamList, ActiveRun } from '../types';
 
@@ -105,6 +106,12 @@ export function ChecklistRunScreen() {
   const [checkedAt, setCheckedAt] = useState<Record<string, string>>(
     existingRun?.checkedAt ?? {}
   );
+  // Items the user has marked "ignore" for this trip — excluded from the score
+  // (see computeTripScore). Per-run only; reset clears it. `?? {}` for older
+  // persisted runs that predate the field.
+  const [ignored, setIgnored] = useState<Record<string, boolean>>(
+    existingRun?.ignored ?? {}
+  );
   // Whether the departure (start) phase has been completed.
   const [startDone, setStartDone] = useState<boolean>(existingRun?.startDone ?? false);
 
@@ -126,7 +133,8 @@ export function ChecklistRunScreen() {
     }
     if (!checklist) return;
     const anyChecked = Object.values(checked).some(Boolean);
-    if (anyChecked || startDone) {
+    const anyIgnored = Object.values(ignored).some(Boolean);
+    if (anyChecked || anyIgnored || startDone) {
       const run: ActiveRun = {
         checklistId: checklist.id,
         isMultiStop: false,
@@ -136,6 +144,7 @@ export function ChecklistRunScreen() {
         startDone,
         checked,
         checkedAt,
+        ignored,
         // Multi-stop fields stay at their empty defaults for a regular run.
         stopIndex: 0,
         stopChecked: {},
@@ -146,7 +155,7 @@ export function ChecklistRunScreen() {
       clearActiveRun(checklist.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checked, checkedAt, startDone, activeTab]);
+  }, [checked, checkedAt, ignored, startDone, activeTab]);
 
   // Guard: show a clear error state if the checklist was deleted while this
   // screen was on the navigation stack (can happen if the user deletes it from
@@ -161,12 +170,22 @@ export function ChecklistRunScreen() {
 
   // Items displayed depend on which tab is active.
   const items = activeTab === 'start' ? checklist.startItems : checklist.endItems;
-  const checkedCount = items.filter((it) => checked[it.id]).length;
-  // Avoid dividing by zero when a tab has no items.
-  const pct = items.length > 0 ? Math.round((checkedCount / items.length) * 100) : 0;
+  // Ignored items are skipped for this trip: they don't count toward the score,
+  // so the progress bar is computed over the non-ignored ("active") items only.
+  const activeItems = items.filter((it) => !ignored[it.id]);
+  const checkedCount = activeItems.filter((it) => checked[it.id]).length;
+  const ignoredCount = items.length - activeItems.length;
+  // Avoid dividing by zero when a tab has no active items.
+  const pct =
+    activeItems.length > 0 ? Math.round((checkedCount / activeItems.length) * 100) : 0;
 
-  // Flip a single item's checked state and record/clear its timestamp.
+  // Flip a single item's checked state and record/clear its timestamp. Tapping
+  // an ignored row restores it (so the row tap is never a dead end).
   function toggle(id: string) {
+    if (ignored[id]) {
+      toggleIgnore(id);
+      return;
+    }
     const wasChecked = checked[id] ?? false;
     setChecked((prev) => ({ ...prev, [id]: !prev[id] }));
     // Pro: record or remove the timestamp based on the new checked state.
@@ -178,11 +197,38 @@ export function ChecklistRunScreen() {
     });
   }
 
-  // Clear all checked items across both tabs and reset the departure flag —
-  // lets the user restart fresh. The auto-save effect then clears the run.
+  // Mark an item "ignore" (or restore it). Ignoring also clears any checked
+  // state + timestamp so an ignored item can never count toward the score.
+  function toggleIgnore(id: string) {
+    const willIgnore = !ignored[id];
+    setIgnored((prev) => {
+      const next = { ...prev };
+      if (willIgnore) next[id] = true;
+      else delete next[id];
+      return next;
+    });
+    if (willIgnore) {
+      setChecked((prev) => {
+        if (!prev[id]) return prev;
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
+      setCheckedAt((prev) => {
+        if (!prev[id]) return prev;
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
+    }
+  }
+
+  // Clear all checked + ignored items across both tabs and reset the departure
+  // flag — lets the user restart fresh. The auto-save effect then clears the run.
   function resetAll() {
     setChecked({});
     setCheckedAt({});
+    setIgnored({});
     setStartDone(false);
   }
 
@@ -192,33 +238,33 @@ export function ChecklistRunScreen() {
     setActiveTab(tab);
   }
 
-  // Check/uncheck every item in the current tab at once.
-  // If all are already checked → uncheck all; otherwise → check all.
+  // Check/uncheck every ACTIVE item in the current tab at once (ignored items
+  // are left untouched). If all are already checked → uncheck all; else → check all.
   function toggleAll() {
-    const allChecked = items.every((it) => checked[it.id]);
+    const allChecked = activeItems.length > 0 && activeItems.every((it) => checked[it.id]);
     const now = new Date().toISOString();
     if (allChecked) {
-      // Uncheck: remove every current-tab item from both maps.
+      // Uncheck: remove every active current-tab item from both maps.
       setChecked((prev) => {
         const copy = { ...prev };
-        items.forEach((it) => { delete copy[it.id]; });
+        activeItems.forEach((it) => { delete copy[it.id]; });
         return copy;
       });
       setCheckedAt((prev) => {
         const copy = { ...prev };
-        items.forEach((it) => { delete copy[it.id]; });
+        activeItems.forEach((it) => { delete copy[it.id]; });
         return copy;
       });
     } else {
-      // Check all that aren't already checked.
+      // Check all active items that aren't already checked.
       setChecked((prev) => {
         const next = { ...prev };
-        items.forEach((it) => { next[it.id] = true; });
+        activeItems.forEach((it) => { next[it.id] = true; });
         return next;
       });
       setCheckedAt((prev) => {
         const next = { ...prev };
-        items.forEach((it) => { if (!prev[it.id]) next[it.id] = now; });
+        activeItems.forEach((it) => { if (!prev[it.id]) next[it.id] = now; });
         return next;
       });
     }
@@ -237,45 +283,49 @@ export function ChecklistRunScreen() {
   // Used by single-phase checklists and by the arrival phase of two-phase ones.
   function markDone() {
     if (!checklist) return; // narrows `checklist` for the rest of this closure
-    // Combine the lists that actually exist (auto single-phase friendly).
-    const allItems = [
-      ...(hasStart ? checklist.startItems : []),
-      ...(hasEnd ? checklist.endItems : []),
-    ];
-    const totalChecked = allItems.filter((it) => checked[it.id]).length;
+    // Score only the items that count: ignored items and un-run phases are
+    // excluded (see computeTripScore). `countedStart`/`countedEnd` are already
+    // filtered, so we reuse them for the per-item history too.
+    const score = computeTripScore({
+      startItems: checklist.startItems,
+      endItems: checklist.endItems,
+      hasStart,
+      hasEnd,
+      twoPhase,
+      startDone,
+      checked,
+      ignored,
+    });
 
     addTripLog({
       checklistId: checklist.id,
       checklistName: checklist.name,
-      checkedCount: totalChecked,
-      totalCount: allItems.length,
+      checkedCount: score.checkedCount,
+      totalCount: score.totalCount,
       timestamp: new Date().toISOString(),
-      isComplete: totalChecked === allItems.length,
+      isComplete: score.isComplete,
       // Attach per-item timestamps and section labels so the history screen can
-      // group and display them clearly.
+      // group and display them clearly. Ignored / un-run items are omitted so
+      // history matches the score.
       items: [
-        ...(hasStart
-          ? checklist.startItems.map((item) => ({
-              id: item.id,
-              label: item.label,
-              checkedAt: checkedAt[item.id],
-              section: 'Start of trip',
-            }))
-          : []),
-        ...(hasEnd
-          ? checklist.endItems.map((item) => ({
-              id: item.id,
-              label: item.label,
-              checkedAt: checkedAt[item.id],
-              section: 'End of trip',
-            }))
-          : []),
+        ...score.countedStart.map((item) => ({
+          id: item.id,
+          label: item.label,
+          checkedAt: checkedAt[item.id],
+          section: 'Start of trip',
+        })),
+        ...score.countedEnd.map((item) => ({
+          id: item.id,
+          label: item.label,
+          checkedAt: checkedAt[item.id],
+          section: 'End of trip',
+        })),
       ],
     });
     // The trip is finished — remove its in-progress run so the Home banner and
     // resume state are cleared.
     clearActiveRun(checklist.id);
-    Alert.alert('Trip complete!', `${totalChecked}/${allItems.length} items checked.`, [
+    Alert.alert('Trip complete!', `${score.checkedCount}/${score.totalCount} items checked.`, [
       {
         text: 'OK',
         onPress: () => {
@@ -360,7 +410,10 @@ export function ChecklistRunScreen() {
         {/* ── Progress bar ────────────────────────────────────────────────── */}
         <View style={s.card}>
           <View style={s.progressRow}>
-            <Text style={s.progressText}>{checkedCount} of {items.length} checked</Text>
+            <Text style={s.progressText}>
+              {checkedCount} of {activeItems.length} checked
+              {ignoredCount > 0 ? ` · ${ignoredCount} skipped` : ''}
+            </Text>
             <Text style={s.progressPct}>{pct}%</Text>
           </View>
           <View style={s.barTrack}>
@@ -381,7 +434,9 @@ export function ChecklistRunScreen() {
               </Text>
               <TouchableOpacity onPress={toggleAll} hitSlop={8}>
                 <Text style={s.allBtnText}>
-                  {items.every((it) => checked[it.id]) ? 'None' : 'All'}
+                  {activeItems.length > 0 && activeItems.every((it) => checked[it.id])
+                    ? 'None'
+                    : 'All'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -391,25 +446,66 @@ export function ChecklistRunScreen() {
               No items for this tab. Add them in edit mode.
             </Text>
           ) : (
-            items.map((item, idx) => (
-              <TouchableOpacity
-                key={item.id}
-                style={[s.checkRow, idx < items.length - 1 && s.checkRowBorder]}
-                onPress={() => toggle(item.id)}
-                activeOpacity={0.7}
-              >
-                {/* Circular checkbox: background + border driven by checked state */}
-                <View style={[s.checkbox, checked[item.id] && s.checkboxChecked]}>
-                  {checked[item.id] && (
-                    <Ionicons name="checkmark" size={13} color="#fff" />
-                  )}
+            items.map((item, idx) => {
+              const isChecked = !!checked[item.id];
+              const isIgnored = !!ignored[item.id];
+              return (
+                <View
+                  key={item.id}
+                  style={[s.checkRow, idx < items.length - 1 && s.checkRowBorder]}
+                >
+                  {/* Main tappable area: checkbox + label. Tapping toggles the
+                      check (or restores an ignored item). */}
+                  <TouchableOpacity
+                    style={s.checkMain}
+                    onPress={() => toggle(item.id)}
+                    activeOpacity={0.7}
+                  >
+                    {/* Circular checkbox: filled when checked, muted dash when ignored. */}
+                    <View
+                      style={[
+                        s.checkbox,
+                        isChecked && s.checkboxChecked,
+                        isIgnored && s.checkboxIgnored,
+                      ]}
+                    >
+                      {isChecked && <Ionicons name="checkmark" size={13} color="#fff" />}
+                      {isIgnored && (
+                        <Ionicons name="remove" size={13} color={theme.colors.textTertiary} />
+                      )}
+                    </View>
+                    <Text
+                      style={[
+                        s.checkLabel,
+                        isChecked && s.checkLabelDone,
+                        isIgnored && s.checkLabelIgnored,
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                    {isIgnored && (
+                      <View style={s.skipTag}>
+                        <Text style={s.skipTagText}>Skipped</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+
+                  {/* Trailing Ignore / Restore control — its own touch target so
+                      it never competes with the check tap. */}
+                  <TouchableOpacity
+                    style={s.ignoreBtn}
+                    onPress={() => toggleIgnore(item.id)}
+                    hitSlop={8}
+                  >
+                    <Ionicons
+                      name={isIgnored ? 'arrow-undo-outline' : 'remove-circle-outline'}
+                      size={18}
+                      color={isIgnored ? theme.colors.primary : theme.colors.textTertiary}
+                    />
+                  </TouchableOpacity>
                 </View>
-                {/* Strike-through + muted color when checked */}
-                <Text style={[s.checkLabel, checked[item.id] && s.checkLabelDone]}>
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            ))
+              );
+            })
           )}
         </View>
 
@@ -526,6 +622,13 @@ const s = StyleSheet.create({
   checkRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  // Inner tappable area (checkbox + label). The outer row owns the separator;
+  // this owns the real vertical padding / tap target.
+  checkMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
     paddingVertical: 12,
   },
@@ -546,8 +649,24 @@ const s = StyleSheet.create({
     backgroundColor: theme.colors.primary,
     borderColor: theme.colors.primary,
   },
+  // Ignored items get a muted, hollow checkbox (a dash, not a check) so they're
+  // clearly distinct from both "to do" and "done".
+  checkboxIgnored: {
+    backgroundColor: theme.colors.bgSecondary,
+    borderColor: theme.colors.borderSecondary,
+  },
   checkLabel: { flex: 1, fontSize: 15, color: theme.colors.textPrimary },
   checkLabelDone: { color: theme.colors.textTertiary, textDecorationLine: 'line-through' },
+  // Muted (no strike-through — that means "done", this means "skipped").
+  checkLabelIgnored: { color: theme.colors.textTertiary },
+  skipTag: {
+    backgroundColor: theme.colors.bgSecondary,
+    borderRadius: theme.radius.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  skipTagText: { fontSize: 11, fontWeight: '500', color: theme.colors.textTertiary },
+  ignoreBtn: { paddingHorizontal: 6, paddingVertical: 10, marginLeft: 4 },
 
   btnRow: { flexDirection: 'row', gap: 8 },
   btnSecondary: {

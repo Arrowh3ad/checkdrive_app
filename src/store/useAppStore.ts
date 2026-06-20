@@ -232,6 +232,7 @@ export const useAppStore = create<AppStore>()(
         defaultChecklistId: 'cl-default-1',
         openChecklistOnConnect: false,
         reviewRequested: false,
+        onboardingSeen: false,
       },
       // Fresh installs are not connected until a real ACL event fires. (Was
       // seeded `true` for demos, which both mis-showed "connected" on the Home

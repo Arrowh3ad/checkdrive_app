@@ -113,6 +113,12 @@ export type ActiveRun = {
   checked: Record<string, boolean>;
   // item id → ISO timestamp it was checked (Pro per-item detail).
   checkedAt: Record<string, string>;
+  // item id → "ignored/skipped for this trip". Ignored items are excluded from
+  // BOTH the completion numerator and denominator, so skipping something you
+  // didn't need today (e.g. coffee) never lowers your score. Per-run only —
+  // cleared on reset/completion, never written back to the checklist template.
+  // Optional: older persisted runs won't have it (read with `?? {}`).
+  ignored?: Record<string, boolean>;
 
   // ── Multi-stop fields (isMultiStop === true) ─────────────────────────────
   // Index of the stop the user is currently on.
@@ -146,6 +152,8 @@ export type Settings = {
   // only ever fires once. (Missing on older persisted installs → treated as
   // false, which is correct — they just become eligible at the trip threshold.)
   reviewRequested: boolean;
+  // Set true once the first-run welcome sheet has been dismissed.
+  onboardingSeen: boolean;
 };
 
 // The navigation param map consumed by React Navigation's `createNativeStackNavigator`.
