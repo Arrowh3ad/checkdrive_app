@@ -35,14 +35,14 @@ const SLIDES: Slide[] = [
     body: 'CheckDrive gives you a quick checklist for every trip, so you catch what you’d forget before you pull out of the driveway.',
   },
   {
-    icon: 'list-outline',
-    title: 'Tap a list, check it off',
-    body: 'Run a checklist before (and after) you drive. Edit the samples or build your own — your trips and stats are saved automatically.',
+    icon: 'create-outline',
+    title: 'Set up your checklists',
+    body: 'Start with the sample lists or tap “New checklist” to make your own. Add your start and end items, pick an icon, and edit any list anytime.',
   },
   {
     icon: 'car-outline',
-    title: 'Hands-free reminders',
-    body: 'Set up car detection once, and your checklist pops up automatically the moment you get in the car. This is the magic — worth the one-time setup.',
+    title: 'Hands-free, and more',
+    body: 'Set up car detection so your list pops up automatically when you get in the car. Plus a back-seat reminder when you park, and trip history to track what you’ve done.',
   },
 ];
 
