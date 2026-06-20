@@ -48,6 +48,7 @@ import { FREE_CHECKLIST_LIMIT } from '../constants';
 import { theme } from '../theme';
 import { Checklist, RootStackParamList, ActiveRun } from '../types';
 import { formatTimeAgo } from '../utils/time';
+import { Onboarding } from './Onboarding';
 
 // Narrowing the navigation type to the 'Home' screen makes `navigation.navigate`
 // type-safe: TypeScript knows which screens are reachable from here.
@@ -480,44 +481,15 @@ export function HomeScreen() {
         </Pressable>
       </Modal>
 
-      {/* First-run welcome — addresses "hard to know what to do at the start".
-          Shown once (persisted onboardingSeen flag); tapping the backdrop or a
-          button dismisses it. */}
-      <Modal
+      {/* First-run swipeable intro — addresses "hard to know what to do at the
+          start". Shown once (persisted onboardingSeen flag). */}
+      <Onboarding
         visible={!settings.onboardingSeen}
-        transparent
-        animationType="fade"
-        onRequestClose={dismissOnboarding}
-      >
-        <Pressable style={s.menuBackdrop} onPress={dismissOnboarding}>
-          <Pressable style={s.menuSheet} onPress={() => {}}>
-            <Text style={s.menuTitle}>Welcome to CheckDrive</Text>
-            <Text style={s.onbStep}>
-              1. Tap a checklist to run through it before (and after) a drive.
-            </Text>
-            <Text style={s.onbStep}>
-              2. Make it yours — edit the samples or add your own with "New checklist."
-            </Text>
-            <Text style={s.onbStep}>
-              3. Hands-free: set up car detection so your list pops up automatically when you get
-              in the car.
-            </Text>
-            <TouchableOpacity
-              style={[s.btn, { marginTop: 4 }]}
-              onPress={() => {
-                dismissOnboarding();
-                navigation.navigate('CarDetectionSetup');
-              }}
-            >
-              <Ionicons name="car-outline" size={16} color={theme.colors.textPrimary} />
-              <Text style={s.btnText}> Set up car detection</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[s.menuItem, s.menuCancel]} onPress={dismissOnboarding}>
-              <Text style={[s.menuItemText, s.menuCancelText]}>Got it</Text>
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
-      </Modal>
+        onDone={(setup) => {
+          dismissOnboarding();
+          if (setup) navigation.navigate('CarDetectionSetup');
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -678,5 +650,4 @@ const s = StyleSheet.create({
   menuItemText: { fontSize: 16, color: theme.colors.textPrimary },
   menuCancel: { justifyContent: 'center', marginTop: theme.spacing.sm, borderTopWidth: 0 },
   menuCancelText: { color: theme.colors.textSecondary, fontWeight: '500' },
-  onbStep: { fontSize: 14, color: theme.colors.textSecondary, lineHeight: 20, marginBottom: 10 },
 });
