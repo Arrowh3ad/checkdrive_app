@@ -637,7 +637,10 @@ function StepList({ steps }: { steps: Step[] }) {
           <View style={s.stepNum}>
             <Text style={s.stepNumText}>{step.n}</Text>
           </View>
-          <View style={{ flex: 1 }}>
+          {/* minWidth:0 lets this flex column shrink below its content's
+              intrinsic size — without it, a wide screenshot (≈960px) sets an
+              auto min-width floor and pushes the row off-screen. */}
+          <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={s.stepTitle}>{step.title}</Text>
             <Text style={s.stepDetail}>{step.detail}</Text>
             {step.image && <StepImage source={step.image} />}
