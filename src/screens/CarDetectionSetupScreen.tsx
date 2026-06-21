@@ -112,6 +112,8 @@ import {
   Modal,
   Pressable,
   Linking,
+  Image,
+  ImageSourcePropType,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -124,6 +126,16 @@ import { theme } from '../theme';
 // (personal automations can't be shared via link).
 const SHORTCUT_CONNECT_URL = 'https://www.icloud.com/shortcuts/7b126e4f25e44f7291e349dc47f9a93e';
 const SHORTCUT_DISCONNECT_URL = 'https://www.icloud.com/shortcuts/9bc4c25822234379bb70daee3fda9484';
+// Instant-open variants — these shortcuts open CheckDrive with no "Open CheckDrive?"
+// prompt (vs the ask-first ones above). Offered as a secondary option per section.
+const SHORTCUT_CONNECT_INSTANT_URL = 'https://www.icloud.com/shortcuts/690d3df5ee8d49c7ad8c7f8a3e9c03f6';
+const SHORTCUT_DISCONNECT_INSTANT_URL = 'https://www.icloud.com/shortcuts/bb66da9d9ce747b1809a349b5b95ef5f';
+// iOS setup screenshots — wired into the connect/disconnect step lists below.
+const IMG_AUTOMATION_TAB = require('../../assets/setup-automation-tab.png');
+const IMG_CARPLAY_TRIGGER = require('../../assets/setup-carplay-trigger.png');
+const IMG_CARPLAY_WHEN = require('../../assets/setup-carplay-when.png');
+const IMG_CONNECT_DONE = require('../../assets/setup-connect-done.png');
+const IMG_DISCONNECT_DONE = require('../../assets/setup-disconnect-done.png');
 import { simulateVehicleConnect, simulateVehicleDisconnect } from '../hooks/useCarDetection';
 import * as CarBluetooth from '../../modules/car-bluetooth';
 import type { CarDevice } from '../../modules/car-bluetooth';
@@ -134,58 +146,69 @@ import type { CarDevice } from '../../modules/car-bluetooth';
 // the iCloud link (button above the steps), so the only manual work left is
 // wiring the CarPlay automation. (The old 1–5 "build the shortcut by hand" steps
 // are gone — the share link replaces them.)
-const IOS_CONNECT_STEPS = [
+const IOS_CONNECT_STEPS: Step[] = [
   {
     n: '1',
     title: 'Tap "Add the Enter car shortcut" above',
     detail:
-      'That adds the ready-made "Start CheckDrive" shortcut in one tap — no building it by hand. ' +
-      'iOS may show an "untrusted shortcut" review; that\'s normal, scroll down and tap "Add Shortcut".',
+      'That adds the ready-made shortcut in one tap — no building it by hand. iOS may show an ' +
+      '"untrusted shortcut" review; that\'s normal, scroll down and tap "Add Shortcut".',
   },
   {
     n: '2',
-    title: 'Shortcuts → Automation tab → "+" → New Automation → CarPlay → "Is Connected"',
+    title: 'Open the Automation tab → "+" → New Automation',
     detail:
-      'Switch to the Automation tab (not My Shortcuts). Tap "+" → "New Automation", scroll the ' +
-      'trigger list to "CarPlay", and choose "Is Connected".',
+      'In Shortcuts, switch to the Automation tab (not Library), tap "+", then "New Automation".',
+    image: IMG_AUTOMATION_TAB,
   },
   {
     n: '3',
-    title: 'Add Action → "Run Shortcut" → choose "Start CheckDrive"',
-    detail:
-      'Tap "Add Action", search "Run Shortcut", add it, then tap the Shortcut placeholder and pick ' +
-      '"Start CheckDrive" (the one you just added).',
+    title: 'Choose "CarPlay" as the trigger',
+    detail: 'Scroll the trigger list and pick CarPlay.',
+    image: IMG_CARPLAY_TRIGGER,
   },
   {
     n: '4',
-    title: 'Turn off "Ask Before Running" → Done',
+    title: 'Pick "Is Connected" and "Run Immediately"',
     detail:
-      'Toggle off "Ask Before Running" (and "Notify When Run" if shown) so the automation fires ' +
-      'silently. The shortcut still shows its own quick "open CheckDrive?" prompt on each connect ' +
-      '(unless you used the instant-open version).',
+      'Select "Is Connected", then choose "Run Immediately" so it fires silently — that\'s the ' +
+      'newer iOS replacement for the old "Ask Before Running" toggle. Leave "Notify When Run" ' +
+      'off and tap Next.',
+    image: IMG_CARPLAY_WHEN,
+  },
+  {
+    n: '5',
+    title: 'Add Action → "Run Shortcut" → your CheckDrive shortcut → Done',
+    detail:
+      'Add a "Run Shortcut" action and pick the shortcut you added (e.g. "Open CheckDrive on ' +
+      'CarPlay connect"). Tap Done — it now runs every time CarPlay connects.',
+    image: IMG_CONNECT_DONE,
   },
 ];
 
-// iOS disconnect — same shape: add the prebuilt "Stop CheckDrive" shortcut via
-// the link, then wire the "Is Disconnected" automation.
-const IOS_DISCONNECT_STEPS = [
+// iOS disconnect — same shape: add the prebuilt exit shortcut via the link, then
+// wire the "Is Disconnected" automation.
+const IOS_DISCONNECT_STEPS: Step[] = [
   {
     n: '1',
     title: 'Tap "Add the Exit car shortcut" above',
-    detail:
-      'Adds the ready-made "Stop CheckDrive" shortcut. Same "Add Shortcut" review as before.',
+    detail: 'Adds the ready-made disconnect shortcut. Same "Add Shortcut" review as before.',
   },
   {
     n: '2',
-    title: 'Automation tab → "+" → New Automation → CarPlay → "Is Disconnected"',
+    title: 'New Automation → CarPlay → "Is Disconnected"',
     detail:
-      'Same as the connect automation, but pick "Is Disconnected" as the CarPlay trigger.',
+      'Same as the connect automation (Automation tab → "+" → New Automation → CarPlay), but ' +
+      'pick "Is Disconnected", set "Run Immediately", and leave "Notify When Run" off.',
   },
   {
     n: '3',
-    title: 'Add Action → "Run Shortcut" → "Stop CheckDrive" → turn off "Ask Before Running" → Done',
+    title: 'Add Action → "Run Shortcut" → your exit shortcut → Done',
     detail:
-      'CheckDrive will now post your arrival / back-seat reminder whenever CarPlay disconnects.',
+      'Add "Run Shortcut" and pick your exit shortcut (e.g. "Open CheckDrive on CarPlay ' +
+      'disconnect"). CheckDrive now posts your arrival / back-seat reminder whenever CarPlay ' +
+      'disconnects.',
+    image: IMG_DISCONNECT_DONE,
   },
 ];
 
@@ -592,7 +615,17 @@ function Collapsible({
 // Numbered step list — extracted because we render six of these on the Android
 // tab (three tools × connect/disconnect) plus two on iOS. Inlining the JSX in
 // every spot would triple the size of the render function for no benefit.
-type Step = { n: string; title: string; detail: string };
+type Step = { n: string; title: string; detail: string; image?: ImageSourcePropType };
+
+// Optional screenshot under a step. Reads the asset's intrinsic size so it
+// renders at the correct proportions regardless of the source resolution — no
+// hardcoded aspect ratios to drift when a screenshot is re-exported.
+function StepImage({ source }: { source: ImageSourcePropType }) {
+  const meta = Image.resolveAssetSource(source);
+  const ratio = meta && meta.height ? meta.width / meta.height : 1;
+  return <Image source={source} style={[s.stepImage, { aspectRatio: ratio }]} resizeMode="contain" />;
+}
+
 function StepList({ steps }: { steps: Step[] }) {
   return (
     <View style={s.card}>
@@ -607,6 +640,7 @@ function StepList({ steps }: { steps: Step[] }) {
           <View style={{ flex: 1 }}>
             <Text style={s.stepTitle}>{step.title}</Text>
             <Text style={s.stepDetail}>{step.detail}</Text>
+            {step.image && <StepImage source={step.image} />}
           </View>
         </View>
       ))}
@@ -926,6 +960,12 @@ export function CarDetectionSetupScreen() {
               may show an "untrusted shortcut" review; that's normal, tap Add Shortcut. Then wire
               the automation in the steps below.
             </Text>
+            <TouchableOpacity
+              onPress={() => Linking.openURL(SHORTCUT_CONNECT_INSTANT_URL)}
+              style={s.scanLink}
+            >
+              <Text style={s.scanLinkText}>No prompt? Add the instant-open version</Text>
+            </TouchableOpacity>
 
             <Collapsible title="Why a shortcut, and does it interrupt me?">
               <Text style={s.noteText}>
@@ -960,6 +1000,12 @@ export function CarDetectionSetupScreen() {
               Adds the ready-made disconnect shortcut. Then wire it to the "Is Disconnected"
               automation, same as connect.
             </Text>
+            <TouchableOpacity
+              onPress={() => Linking.openURL(SHORTCUT_DISCONNECT_INSTANT_URL)}
+              style={s.scanLink}
+            >
+              <Text style={s.scanLinkText}>No prompt? Add the instant-open version</Text>
+            </TouchableOpacity>
 
             <View style={s.noteCard}>
               <Ionicons name="information-circle" size={16} color={theme.colors.primary} />
@@ -1425,6 +1471,14 @@ const s = StyleSheet.create({
   stepNumText: { fontSize: 12, fontWeight: '600', color: theme.colors.primaryDark },
   stepTitle: { fontSize: 14, fontWeight: '500', color: theme.colors.textPrimary, marginBottom: 3 },
   stepDetail: { fontSize: 13, color: theme.colors.textSecondary, lineHeight: 18 },
+  stepImage: {
+    width: '100%',
+    marginTop: 8,
+    borderRadius: theme.radius.sm,
+    borderWidth: 0.5,
+    borderColor: theme.colors.borderTertiary,
+    backgroundColor: theme.colors.bgSecondary,
+  },
 
   urlCard: {
     backgroundColor: theme.colors.bgPrimary,
