@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// store/useAppStore.ts  —  Global state management via Zustand.
+// store/useAppStore.ts  -  Global state management via Zustand.
 //
 // This is the single source of truth for all app data. Any component can call
 // `useAppStore()` to read or mutate state; the hook is a thin Zustand selector
@@ -18,7 +18,7 @@
 // WHY ZUSTAND?
 // Redux would require actions/reducers/selectors boilerplate. React Context
 // re-renders every consumer on every change. Zustand gives us a simple `set()`
-// API, granular re-renders via selectors, and first-class persist middleware —
+// API, granular re-renders via selectors, and first-class persist middleware -
 // all with zero extra packages beyond Zustand itself.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -94,7 +94,7 @@ const defaultChecklists: Checklist[] = [
     stops: [
       {
         id: 'stop-1',
-        name: 'Home — depart',
+        name: 'Home - depart',
         subtitle: '6 items',
         items: [
           { id: 'sp1-1', label: 'Luggage packed' },
@@ -109,7 +109,7 @@ const defaultChecklists: Checklist[] = [
       },
       {
         id: 'stop-2',
-        name: 'Rest stop — Gas & snacks',
+        name: 'Rest stop - Gas & snacks',
         subtitle: '3 items',
         items: [
           { id: 'sp2-1', label: 'Fill gas tank' },
@@ -121,7 +121,7 @@ const defaultChecklists: Checklist[] = [
       },
       {
         id: 'stop-3',
-        name: 'Beach house — arrive',
+        name: 'Beach house - arrive',
         subtitle: '4 items on arrival',
         items: [
           { id: 'sp3-1', label: 'Check in / get keys' },
@@ -140,7 +140,7 @@ const defaultChecklists: Checklist[] = [
   },
 ];
 
-// Release builds start with a clean trip history — no seeded example trips, so
+// Release builds start with a clean trip history - no seeded example trips, so
 // the HomeScreen stats reflect only the user's real trips from day one.
 const defaultTripLogs: TripLog[] = [];
 
@@ -160,7 +160,7 @@ interface AppStore {
   // "continue where you left off" banner. At most one entry per checklistId.
   activeRuns: ActiveRun[];
 
-  // The checklist tied to the current/most-recent trip — set when the car
+  // The checklist tied to the current/most-recent trip - set when the car
   // connects (to the would-run checklist) and when a run is started. The
   // back-seat reminder keys off THIS on disconnect, so it works for any trip
   // without needing a Pro "default checklist". null until the first trip.
@@ -168,10 +168,10 @@ interface AppStore {
 
   // ── Actions ────────────────────────────────────────────────────────────────
   // `Omit<Checklist, 'id' | 'createdAt'>` is a TypeScript built-in that produces
-  // a copy of the Checklist type with those two keys removed — callers don't
+  // a copy of the Checklist type with those two keys removed - callers don't
   // supply them because the action generates them internally.
   addChecklist: (data: Omit<Checklist, 'id' | 'createdAt'>) => void;
-  // `Partial<Checklist>` makes every field optional — callers only pass the
+  // `Partial<Checklist>` makes every field optional - callers only pass the
   // fields they want to change; everything else is left as-is via the spread.
   updateChecklist: (id: string, data: Partial<Checklist>) => void;
   deleteChecklist: (id: string) => void;
@@ -216,7 +216,7 @@ interface AppStore {
 export const useAppStore = create<AppStore>()(
   persist(
     (set) => ({
-      // Initial state — overwritten by persisted data after the first launch.
+      // Initial state - overwritten by persisted data after the first launch.
       checklists: defaultChecklists,
       tripLogs: defaultTripLogs,
       settings: {
@@ -302,7 +302,7 @@ export const useAppStore = create<AppStore>()(
       // ── Trip log actions ─────────────────────────────────────────────────
       addTripLog: (log) =>
         set((state) => {
-          // Trip history is free for everyone — local-only data, so a generous
+          // Trip history is free for everyone - local-only data, so a generous
           // cap costs nothing. (Just bounds storage so it can't grow forever.)
           const cap = 500;
           return {
@@ -359,7 +359,7 @@ export const useAppStore = create<AppStore>()(
       setLastTripChecklist: (id) => set({ lastTripChecklistId: id }),
 
       // ── Pro downgrade ────────────────────────────────────────────────────
-      // Only flips the flag — it never deletes checklists or runs. We never
+      // Only flips the flag - it never deletes checklists or runs. We never
       // destroy data a user created (the free cap only gates *new* creation),
       // so a lapse/refund just re-enables ads and the creation limit. Currently
       // unused in-app (lifetime Pro doesn't lapse); kept for future subscription

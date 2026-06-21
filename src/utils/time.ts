@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// utils/time.ts  —  Human-readable relative timestamps.
+// utils/time.ts  -  Human-readable relative timestamps.
 //
 // Used in HomeScreen's "Recent trips" list to display time-ago strings like
 // "Today, 9:42am" or "Yesterday".
@@ -7,7 +7,7 @@
 
 // Converts an ISO timestamp string into a user-readable label.
 // The function intentionally avoids internationalization libraries to keep
-// the bundle light — this app targets a narrow set of English-language users.
+// the bundle light - this app targets a narrow set of English-language users.
 export function formatTimeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
 
@@ -27,7 +27,7 @@ export function formatTimeAgo(iso: string): string {
 
   const date = new Date(iso);
 
-  // Less than 60 minutes or less than 24 hours — both show as "Today, H:MMam".
+  // Less than 60 minutes or less than 24 hours - both show as "Today, H:MMam".
   // We show the exact clock time rather than a fuzzy "2 hours ago" so the user
   // can relate the log entry to a specific part of their day.
   if (hours < 24) return `Today, ${clockStr(date)}`;

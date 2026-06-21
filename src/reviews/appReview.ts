@@ -1,10 +1,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// reviews/appReview.ts  —  One-time in-app "rate this app" prompt.
+// reviews/appReview.ts  -  One-time in-app "rate this app" prompt.
 //
 // Uses the OS-native review prompt (SKStoreReviewController on iOS, In-App
 // Review on Android) via expo-store-review. We fire it once, after the user has
 // completed enough trips to have formed an opinion, at a natural break (trip
-// completion) — and never while an interstitial ad is showing (the caller gates
+// completion) - and never while an interstitial ad is showing (the caller gates
 // on that). The OS itself also rate-limits the prompt, so this is best-effort:
 // requestReview() may silently do nothing, which is expected and fine.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -12,7 +12,7 @@
 import * as StoreReview from 'expo-store-review';
 import { useAppStore } from '../store/useAppStore';
 
-// Ask only after the user has some history with the app — enough trips to have
+// Ask only after the user has some history with the app - enough trips to have
 // an opinion worth leaving.
 const REVIEW_TRIP_THRESHOLD = 15;
 

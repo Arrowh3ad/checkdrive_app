@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// utils/ids.ts  —  Lightweight unique-ID generator.
+// utils/ids.ts  -  Lightweight unique-ID generator.
 //
 // We use a base-36 combination of Math.random() and Date.now() instead of a
 // UUID library to keep the bundle small. The IDs are used as React list keys

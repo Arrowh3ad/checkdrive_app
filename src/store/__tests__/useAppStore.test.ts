@@ -3,7 +3,7 @@
 //
 // The store is a singleton, so each test sets the slice of state it cares about
 // via `useAppStore.setState(...)`, calls an action, then asserts on the new
-// state read with `useAppStore.getState()`. No React, no device — pure logic.
+// state read with `useAppStore.getState()`. No React, no device - pure logic.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useAppStore } from '../useAppStore';
@@ -43,7 +43,7 @@ describe('downgradeFromPro', () => {
     useAppStore.getState().downgradeFromPro();
 
     const s = useAppStore.getState();
-    // Data is preserved — only the entitlement flag flips. (We never destroy
+    // Data is preserved - only the entitlement flag flips. (We never destroy
     // checklists; the free cap only gates creating *new* ones.)
     expect(s.checklists).toHaveLength(5);
     expect(s.settings.isPro).toBe(false);

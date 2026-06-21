@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// utils/score.ts  —  Pure trip-scoring logic for regular (non-multi-stop) runs.
+// utils/score.ts  -  Pure trip-scoring logic for regular (non-multi-stop) runs.
 //
 // Extracted from ChecklistRunScreen so the rules below are unit-testable in
 // isolation. Two ideas drive the score:
@@ -16,7 +16,7 @@
 //      the connect reminder, then complete only the arrival items from the
 //      disconnect reminder, the un-run departure items are NOT logged as misses.
 //      Single-phase checklists (start-only or end-only) always count their one
-//      list — there's no phase to skip.
+//      list - there's no phase to skip.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { ChecklistItem } from '../types';
@@ -53,7 +53,7 @@ export function computeTripScore(input: ScoreInput): TripScore {
   // single-phase start-only checklist there's no departure step to skip, so it
   // always counts (twoPhase is false → the guard passes).
   const countStart = hasStart && (!twoPhase || startDone);
-  // End items count whenever the checklist has them — finalizing IS completing
+  // End items count whenever the checklist has them - finalizing IS completing
   // the arrival/only phase.
   const countEnd = hasEnd;
 
@@ -69,7 +69,7 @@ export function computeTripScore(input: ScoreInput): TripScore {
     countedEnd,
     checkedCount,
     totalCount,
-    // 0/0 (e.g. everything ignored) reads as complete — nothing was needed, so
+    // 0/0 (e.g. everything ignored) reads as complete - nothing was needed, so
     // the trip shouldn't be penalized as "incomplete".
     isComplete: checkedCount === totalCount,
   };

@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// screens/PaywallScreen.tsx  —  CheckDrive Pro (lifetime unlock).
+// screens/PaywallScreen.tsx  -  CheckDrive Pro (lifetime unlock).
 //
 // Minimal Pro: a one-time lifetime purchase that removes ads and the free
 // checklist cap. Price/“lifetime” framing comes from the RevenueCat package
@@ -49,7 +49,7 @@ type Perk = { icon: string; title: string; sub: string; androidOnly?: boolean };
 
 const PERKS: Perk[] = [
   { icon: 'infinite', title: 'Unlimited checklists', sub: 'Free plan is limited to 3' },
-  // Ads only run on Android, so "No ads" is only a real perk there — hidden on iOS.
+  // Ads only run on Android, so "No ads" is only a real perk there - hidden on iOS.
   { icon: 'remove-circle-outline', title: 'No ads', sub: 'A clean, distraction-free app', androidOnly: true },
   { icon: 'star-outline', title: 'Auto-open on connect', sub: 'Jump straight into your default list when the car connects' },
   { icon: 'heart-outline', title: 'Support development', sub: 'A one-time thank-you' },
@@ -83,7 +83,7 @@ export function PaywallScreen() {
     };
   }, []);
 
-  // When the user is Pro we don't auto-close — we render an "active" confirmation
+  // When the user is Pro we don't auto-close - we render an "active" confirmation
   // state (see below) so a purchase/restore gives clear feedback.
 
   async function handleBuy() {
@@ -129,7 +129,7 @@ export function PaywallScreen() {
             <MaterialCommunityIcons name="crown" size={30} color={theme.colors.purple} />
           </View>
           <Text style={s.title}>CheckDrive Pro</Text>
-          <Text style={s.subtitle}>A one-time unlock — yours forever, no subscription.</Text>
+          <Text style={s.subtitle}>A one-time unlock - yours forever, no subscription.</Text>
         </View>
 
         {/* Perks */}
@@ -149,13 +149,13 @@ export function PaywallScreen() {
 
         {/* Buy / states */}
         {isPro ? (
-          // Already Pro — show a confirmation instead of the buy button. (A
+          // Already Pro - show a confirmation instead of the buy button. (A
           // lifetime unlock can't be re-bought, so no purchase UI here.)
           <View style={s.activeBox}>
             <Ionicons name="checkmark-circle" size={40} color={theme.colors.purple} />
             <Text style={s.activeTitle}>Pro is active</Text>
             <Text style={s.activeSub}>
-              You have lifetime access — thank you for your support!
+              You have lifetime access - thank you for your support!
             </Text>
             <TouchableOpacity style={[s.buyBtn, s.doneBtn]} onPress={() => navigation.goBack()}>
               <Text style={s.buyBtnText}>Done</Text>
@@ -187,7 +187,7 @@ export function PaywallScreen() {
           </>
         )}
 
-        {/* Legal — required on a purchase screen */}
+        {/* Legal - required on a purchase screen */}
         <View style={s.legalRow}>
           <TouchableOpacity onPress={() => Linking.openURL(TERMS_URL)}>
             <Text style={s.legalLink}>Terms</Text>

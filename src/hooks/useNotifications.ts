@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// hooks/useNotifications.ts  —  Push-notification setup and helpers.
+// hooks/useNotifications.ts  -  Push-notification setup and helpers.
 //
 // This module handles two responsibilities:
 //
@@ -17,7 +17,7 @@
 //     the user taps the notification, App.tsx knows which screen to navigate to.
 //
 // The `Notifications.setNotificationHandler` call here mirrors the one in
-// App.tsx. They are intentionally identical — the module-level handler in
+// App.tsx. They are intentionally identical - the module-level handler in
 // App.tsx runs for the live app; this one ensures the handler is set even if
 // this module is loaded before App.tsx runs (e.g. in tests).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -62,7 +62,7 @@ export async function requestNotificationPermissions(): Promise<boolean> {
   const { status: existing } = await Notifications.getPermissionsAsync();
   if (existing === 'granted') return true;
 
-  // First-time request — presents the system permission prompt.
+  // First-time request - presents the system permission prompt.
   const { status } = await Notifications.requestPermissionsAsync();
   return status === 'granted';
 }
@@ -104,9 +104,9 @@ export async function sendTripEndNotification(
 ): Promise<void> {
   await Notifications.scheduleNotificationAsync({
     content: {
-      // Multi-stop trips have no separate arrival tab — the destination is the
+      // Multi-stop trips have no separate arrival tab - the destination is the
       // stop list itself, so word it as "review your stops" instead.
-      title: isMultiStop ? 'Trip ended — review your stops' : 'Trip ended — check your arrival items',
+      title: isMultiStop ? 'Trip ended - review your stops' : 'Trip ended - check your arrival items',
       body: checklistName
         ? isMultiStop
           ? `Tap to finish your "${checklistName}" stops`
@@ -125,7 +125,7 @@ export async function sendTripEndNotification(
 }
 
 // Fires a distinct, high-urgency reminder to check the back seat when the car
-// disconnects — the safety variant of the arrival notification. Carries the
+// disconnects - the safety variant of the arrival notification. Carries the
 // same data payload so a tap still opens the relevant checklist.
 export async function sendBackSeatNotification(
   message?: string,

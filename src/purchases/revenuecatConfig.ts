@@ -1,9 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// purchases/revenuecatConfig.ts  —  RevenueCat keys + identifiers (one place).
+// purchases/revenuecatConfig.ts  -  RevenueCat keys + identifiers (one place).
 //
 // Replace REVENUECAT_ANDROID_KEY with your project's PUBLIC Android API key from
 // the RevenueCat dashboard (Project settings → API keys → "Public app-specific"
-// for the Android app). It's a *public* key — safe to ship in the app binary.
+// for the Android app). It's a *public* key - safe to ship in the app binary.
 //
 // ENTITLEMENT_ID must match the entitlement identifier you create in RevenueCat
 // (Entitlements → e.g. "pro"). When the user owns the lifetime product, this

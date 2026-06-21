@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// purchases/purchases.ts  —  Guarded RevenueCat access + Pro entitlement logic.
+// purchases/purchases.ts  -  Guarded RevenueCat access + Pro entitlement logic.
 //
 // react-native-purchases is a native module, absent in Expo Go / web, so (like
 // the ads layer) we detect it and only require() it when present. Everything
@@ -46,7 +46,7 @@ export const purchasesAvailable = nativeAvailable;
 // package in the "current" offering.
 export type ProPackage = {
   identifier: string;
-  priceString: string; // e.g. "$4.99" — display as-is (already localized)
+  priceString: string; // e.g. "$4.99" - display as-is (already localized)
   raw: any;            // the underlying RevenueCat package, passed to purchase()
 };
 
@@ -74,7 +74,7 @@ export async function initPurchases(): Promise<void> {
     // …and keep it live if the entitlement changes (e.g. restore elsewhere).
     Purchases.addCustomerInfoUpdateListener((ci: any) => syncProFromCustomer(ci));
   } catch {
-    /* configuration failed — stay free */
+    /* configuration failed - stay free */
   }
 }
 
@@ -109,7 +109,7 @@ export async function purchasePro(pkg: ProPackage): Promise<boolean> {
     const { customerInfo } = await Purchases.purchasePackage(pkg.raw);
     return syncProFromCustomer(customerInfo);
   } catch (e: any) {
-    if (e?.userCancelled) return false; // not an error — user backed out
+    if (e?.userCancelled) return false; // not an error - user backed out
     throw e;
   }
 }

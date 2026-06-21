@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// screens/ChecklistRunScreen.tsx  —  Active checklist run for regular trips.
+// screens/ChecklistRunScreen.tsx  -  Active checklist run for regular trips.
 //
 // This screen is used for checklists where `isMultiStop === false`. For
 // multi-stop checklists, see MultiStopScreen.
@@ -13,7 +13,7 @@
 //     • "Complete trip" (on the arrival tab) writes ONE combined TripLog
 //       spanning both lists and clears the run.
 //   AUTO SINGLE-PHASE: when only one list has items (start-only, or end-only),
-//   there is no tab switcher — a single "Complete trip" button finalizes
+//   there is no tab switcher - a single "Complete trip" button finalizes
 //   immediately.
 //
 // AUTO-SAVE
@@ -23,12 +23,12 @@
 //   The run is cleared when the trip is finalized or fully reset.
 //
 // STATE MODEL
-//   `checked` — `Record<string, boolean>` (item ID → checked); O(1) lookups.
-//   `checkedAt` — `Record<string, string>` (item ID → ISO timestamp).
-//   `activeTab` — 'start' | 'end'. A single `checked` map covers both tabs
+//   `checked` - `Record<string, boolean>` (item ID → checked); O(1) lookups.
+//   `checkedAt` - `Record<string, string>` (item ID → ISO timestamp).
+//   `activeTab` - 'start' | 'end'. A single `checked` map covers both tabs
 //   (item IDs are unique across the two lists), so switching tabs does NOT
 //   clear progress.
-//   `startDone` — whether the departure phase has been completed.
+//   `startDone` - whether the departure phase has been completed.
 //
 // NAVIGATION
 // Reached from:
@@ -67,7 +67,7 @@ export function ChecklistRunScreen() {
     useAppStore();
 
   // Look up the checklist by the ID passed as a navigation param.
-  // `.find` returns `Checklist | undefined` — we guard below.
+  // `.find` returns `Checklist | undefined` - we guard below.
   const checklist = checklists.find((c) => c.id === params.checklistId);
 
   // Any previously-saved progress for this checklist (resume support). Found
@@ -106,7 +106,7 @@ export function ChecklistRunScreen() {
   const [checkedAt, setCheckedAt] = useState<Record<string, string>>(
     existingRun?.checkedAt ?? {}
   );
-  // Items the user has marked "ignore" for this trip — excluded from the score
+  // Items the user has marked "ignore" for this trip - excluded from the score
   // (see computeTripScore). Per-run only; reset clears it. `?? {}` for older
   // persisted runs that predate the field.
   const [ignored, setIgnored] = useState<Record<string, boolean>>(
@@ -123,7 +123,7 @@ export function ChecklistRunScreen() {
   // never loses it. A run is only kept while it's "non-empty" (something checked
   // or the departure marked done); otherwise we clear it so an untouched open
   // doesn't leave a phantom entry on the Home banner. We skip the first render
-  // (the state was just seeded from the store — no need to write it straight
+  // (the state was just seeded from the store - no need to write it straight
   // back and bump `updatedAt`).
   const isFirstRender = useRef(true);
   useEffect(() => {
@@ -224,7 +224,7 @@ export function ChecklistRunScreen() {
   }
 
   // Clear all checked + ignored items across both tabs and reset the departure
-  // flag — lets the user restart fresh. The auto-save effect then clears the run.
+  // flag - lets the user restart fresh. The auto-save effect then clears the run.
   function resetAll() {
     setChecked({});
     setCheckedAt({});
@@ -272,7 +272,7 @@ export function ChecklistRunScreen() {
 
   // ── Phase 1 → Phase 2: complete departure ───────────────────────────────────
   // Two-phase only. Marks the start list done and switches to the arrival tab
-  // WITHOUT writing history — the trip stays "in progress" until arrival. The
+  // WITHOUT writing history - the trip stays "in progress" until arrival. The
   // auto-save effect persists the new phase/startDone for the Home banner.
   function completeDeparture() {
     setStartDone(true);
@@ -322,7 +322,7 @@ export function ChecklistRunScreen() {
         })),
       ],
     });
-    // The trip is finished — remove its in-progress run so the Home banner and
+    // The trip is finished - remove its in-progress run so the Home banner and
     // resume state are cleared.
     clearActiveRun(checklist.id);
     Alert.alert('Trip complete!', `${score.checkedCount}/${score.totalCount} items checked.`, [
@@ -357,7 +357,7 @@ export function ChecklistRunScreen() {
         </View>
 
         {/* ── Tab switcher (only for two-phase checklists) ──────────────────── */}
-        {/* Single-phase checklists skip this entirely — there's only one list. */}
+        {/* Single-phase checklists skip this entirely - there's only one list. */}
         {twoPhase && (
           <View style={s.tabs}>
             <TouchableOpacity
@@ -402,7 +402,7 @@ export function ChecklistRunScreen() {
                 ? 'Departure complete. Finish these arrival items when you reach your destination.'
                 : activeTab === 'start'
                 ? 'Check off your departure items, then tap “Complete departure”.'
-                : 'These are your arrival items — complete the trip once you arrive.'}
+                : 'These are your arrival items - complete the trip once you arrive.'}
             </Text>
           </View>
         )}
@@ -417,7 +417,7 @@ export function ChecklistRunScreen() {
             <Text style={s.progressPct}>{pct}%</Text>
           </View>
           <View style={s.barTrack}>
-            {/* Inline `width` style — `${pct}%` produces e.g. "75%" which
+            {/* Inline `width` style - `${pct}%` produces e.g. "75%" which
                 React Native's layout engine handles as a percentage of the
                 parent's width. */}
             <View style={[s.barFill, { width: `${pct}%` }]} />
@@ -490,7 +490,7 @@ export function ChecklistRunScreen() {
                     )}
                   </TouchableOpacity>
 
-                  {/* Trailing Ignore / Restore control — its own touch target so
+                  {/* Trailing Ignore / Restore control - its own touch target so
                       it never competes with the check tap. */}
                   <TouchableOpacity
                     style={s.ignoreBtn}
@@ -657,7 +657,7 @@ const s = StyleSheet.create({
   },
   checkLabel: { flex: 1, fontSize: 15, color: theme.colors.textPrimary },
   checkLabelDone: { color: theme.colors.textTertiary, textDecorationLine: 'line-through' },
-  // Muted (no strike-through — that means "done", this means "skipped").
+  // Muted (no strike-through - that means "done", this means "skipped").
   checkLabelIgnored: { color: theme.colors.textTertiary },
   skipTag: {
     backgroundColor: theme.colors.bgSecondary,

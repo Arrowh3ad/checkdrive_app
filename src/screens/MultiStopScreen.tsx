@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// screens/MultiStopScreen.tsx  —  Active run screen for multi-stop trips.
+// screens/MultiStopScreen.tsx  -  Active run screen for multi-stop trips.
 //
 // This screen handles checklists where `isMultiStop === true`. For single-phase
 // checklists, see ChecklistRunScreen.
@@ -20,8 +20,8 @@
 //      TripLog, clears the run, and pops the screen.
 //
 // SINGLE SOURCE OF TRUTH (the ActiveRun)
-//   This screen keeps NO local checkbox state. Everything — the current stop
-//   index and which items are checked on each stop — lives in the persisted
+//   This screen keeps NO local checkbox state. Everything - the current stop
+//   index and which items are checked on each stop - lives in the persisted
 //   ActiveRun. Every tap calls `saveActiveRun`, so progress is auto-saved and
 //   surviving back-navigation, app restarts, and external CarPlay advances all
 //   come for free. `stopChecked` is keyed by stop index, so undo/redo across
@@ -89,7 +89,7 @@ export function MultiStopScreen() {
   // Checked item IDs for the stop currently on screen, as a Set for O(1) `.has`.
   const checkedSet = new Set<string>(stopChecked[stopIndex] ?? []);
 
-  // Builds a fresh run object — seeds the mount effect and serves as a fallback
+  // Builds a fresh run object - seeds the mount effect and serves as a fallback
   // base when mutating before the store has round-tripped.
   function makeRun(): ActiveRun {
     const now = new Date().toISOString();
@@ -111,7 +111,7 @@ export function MultiStopScreen() {
 
   // We deliberately do NOT create the run on mount (or clear it on unmount):
   // an untouched open shouldn't leave a phantom "continue" entry on the Home
-  // banner — consistent with regular checklists. The run is created on the first
+  // banner - consistent with regular checklists. The run is created on the first
   // item tap (toggle), and cleared only on completion or the Home "discard".
   if (!checklist) {
     return (
@@ -149,10 +149,10 @@ export function MultiStopScreen() {
     });
   }
 
-  // Builds a section label for a stop, e.g. "Stop 2 — Rest stop — Gas & snacks".
+  // Builds a section label for a stop, e.g. "Stop 2 - Rest stop - Gas & snacks".
   function stopSectionLabel(idx: number) {
     const name = stops[idx]?.name;
-    return name ? `Stop ${idx + 1} — ${name}` : `Stop ${idx + 1}`;
+    return name ? `Stop ${idx + 1} - ${name}` : `Stop ${idx + 1}`;
   }
 
   // Advance to the next stop, or complete the trip on the last stop.
@@ -198,7 +198,7 @@ export function MultiStopScreen() {
       items: allItems,
     });
 
-    // The trip is finished — clear its run so it leaves the Home banner and the
+    // The trip is finished - clear its run so it leaves the Home banner and the
     // next open starts fresh at the first stop.
     clearActiveRun(checklist.id);
     Alert.alert('Trip complete!', 'All stops checked off.', [
@@ -288,7 +288,7 @@ export function MultiStopScreen() {
                     idx > stopIndex && s.stopDotUpcoming,
                   ]}
                 />
-                {/* Connector line — hidden after the last stop */}
+                {/* Connector line - hidden after the last stop */}
                 {idx < stops.length - 1 && <View style={s.stopLine} />}
               </View>
               {/* Right column: stop name, subtitle, and badge */}
@@ -354,7 +354,7 @@ export function MultiStopScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* Undo button — only available after the first advance so there's
+        {/* Undo button - only available after the first advance so there's
             something to roll back. Because per-stop checked data is keyed by
             stop index, stepping back restores the previous stop's checkmarks. */}
         {stopIndex > 0 && (

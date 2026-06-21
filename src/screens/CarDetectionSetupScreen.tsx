@@ -1,14 +1,14 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// screens/CarDetectionSetupScreen.tsx  —  One-time car-detection setup guide.
+// screens/CarDetectionSetupScreen.tsx  -  One-time car-detection setup guide.
 //
 // This screen explains why the app can't auto-detect CarPlay / Android Auto
 // (Apple and Google restrict SDK access to approved categories) and walks the
 // user through a one-time automation setup for BOTH connect and disconnect.
 //
-// iOS — TWO-SHORTCUT METHOD (required for iOS 17+ / 18+)
+// iOS - TWO-SHORTCUT METHOD (required for iOS 17+ / 18+)
 // ─────────────────────────────────────────────────────────
 // In recent iOS versions, CarPlay automations don't surface "Open URLs"
-// directly in the suggested-action picker — you see only "Open App",
+// directly in the suggested-action picker - you see only "Open App",
 // "New Shortcut", "Run Shortcut", etc. The solution is to put the URL-opening
 // logic in a separate regular shortcut, then have the automation run that
 // shortcut. This indirection always works because regular shortcuts have the
@@ -21,41 +21,41 @@
 //   Automation: CarPlay Is Connected    → Run "Start CheckDrive"
 //   Automation: CarPlay Is Disconnected → Run "Stop CheckDrive"
 //
-// "ASK FIRST" (Show Alert) — the recommended connect flow
+// "ASK FIRST" (Show Alert) - the recommended connect flow
 // ────────────────────────────────────────────────────────
-// A deep link (Open URLs) ALWAYS foregrounds the app — that can't be prevented
+// A deep link (Open URLs) ALWAYS foregrounds the app - that can't be prevented
 // from inside the app. But the shortcut can present an interactive prompt
 // BEFORE the Open URLs action runs: insert a "Show Alert" action (Scripting,
 // "Show Cancel Button" ON) as the first action. The automation still fires
 // silently (Ask Before Running off), but iOS surfaces the alert as a tappable
-// prompt — tapping OK runs Open URLs and opens the app, Cancel stops the
+// prompt - tapping OK runs Open URLs and opens the app, Cancel stops the
 // shortcut and nothing opens. This gives the dismissible "notification-style"
 // behavior people want while keeping a one-tap path into the checklist.
 // (Confirmed working on-device with calshow://; checkdrive:// resolves the same
 // way once installed as a standalone build.) Skipping the Show Alert action
-// makes the app open instantly with no prompt — that's the user's choice.
+// makes the app open instantly with no prompt - that's the user's choice.
 //
 // GEOFENCING ALTERNATIVE
 // The same "Start CheckDrive" shortcut can be triggered by an Arrive/Leave
 // location automation instead of CarPlay (for users without CarPlay). Caveat:
 // a location automation fires for ONE specific place, so it can't follow a
-// multi-stop trip that visits several different locations — CarPlay (or a
+// multi-stop trip that visits several different locations - CarPlay (or a
 // manual start) is the better trigger for multi-stop checklists.
 //
 // iOS NOTIFICATION LIMITATION (vs Android)
 // Unlike Android's AutomateIt "Notification" action, iOS Shortcuts' "Show
-// Notification" action is fire-and-forget — you cannot attach a tap/deep-link
+// Notification" action is fire-and-forget - you cannot attach a tap/deep-link
 // to it, so its banner opens the Shortcuts app, not CheckDrive. The "Ask first"
 // Show Alert flow above is the better way to get a dismissible prompt, because
 // its OK button actually opens the app. The Show Notification path (see
 // IOS_NOTIFY_STEPS) is kept only as a fully-passive fallback, documented with
 // its tap caveat.
 //
-// ANDROID — BLUETOOTH TRIGGER + DEEP-LINK URL
+// ANDROID - BLUETOOTH TRIGGER + DEEP-LINK URL
 // ────────────────────────────────────────────
 // True Android Auto connection detection (androidx.car.app.connection.
 // CarConnection content provider) requires native Kotlin code inside the app
-// binary — it can't be set up by the user from outside. The practical
+// binary - it can't be set up by the user from outside. The practical
 // alternative for the managed Expo workflow is a user-side automation app
 // that listens for a Bluetooth-connect/-disconnect event and fires the
 // CheckDrive deep-link URL.
@@ -66,7 +66,7 @@
 // are covered by a "Prefer a different automation app?" dropdown that gives the
 // universal intent recipe rather than per-app menus.
 //
-//   • AutomateIt by SmarterApps — free. Discrete "Bluetooth Connected" /
+//   • AutomateIt by SmarterApps - free. Discrete "Bluetooth Connected" /
 //     "Bluetooth Disconnected" triggers (two rules). CONFIRMED action:
 //     "Launch Intent" → component type Activity (NOT Broadcast) → Advanced →
 //     Action = android.intent.action.VIEW, Data = checkdrive://… . BOTH Advanced
@@ -79,7 +79,7 @@
 //
 // WHY URL go / Send Intent, NOT "SEND APP BROADCAST" OR "OPEN WEBSITE"?
 // "Send app broadcast" routes through Android's broadcast system, used by
-// our app for FCM (Firebase Cloud Messaging) and other system events — not
+// our app for FCM (Firebase Cloud Messaging) and other system events - not
 // for launching. "Open Website" hands the URL to a browser, which may
 // intercept custom schemes. URL go (Automate) and Send Intent with VIEW
 // action (Tasker) both fire android.intent.action.VIEW with checkdrive://
@@ -91,7 +91,7 @@
 // Bluetooth. Routines are also being deprecated in favour of Gemini (2026).
 //
 // TEST BUTTONS
-// `Linking.openURL('checkdrive://trigger')` does NOT work for testing on iOS —
+// `Linking.openURL('checkdrive://trigger')` does NOT work for testing on iOS -
 // iOS won't route an app's own URL scheme back to itself when it's already open.
 // Instead the buttons call `simulateVehicleConnect` / `simulateVehicleDisconnect`
 // directly (exported from useCarDetection.ts), which run the same logic without
@@ -121,17 +121,17 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme';
 
-// Prebuilt iCloud Shortcut links — tapping one opens Shortcuts and adds the
+// Prebuilt iCloud Shortcut links - tapping one opens Shortcuts and adds the
 // ready-made "Open URL checkdrive://…" shortcut, so users skip building it by
 // hand (steps 1–5). The CarPlay automation still has to be wired manually
 // (personal automations can't be shared via link).
 const SHORTCUT_CONNECT_URL = 'https://www.icloud.com/shortcuts/7b126e4f25e44f7291e349dc47f9a93e';
 const SHORTCUT_DISCONNECT_URL = 'https://www.icloud.com/shortcuts/9bc4c25822234379bb70daee3fda9484';
-// Instant-open variants — these shortcuts open CheckDrive with no "Open CheckDrive?"
+// Instant-open variants - these shortcuts open CheckDrive with no "Open CheckDrive?"
 // prompt (vs the ask-first ones above). Offered as a secondary option per section.
 const SHORTCUT_CONNECT_INSTANT_URL = 'https://www.icloud.com/shortcuts/690d3df5ee8d49c7ad8c7f8a3e9c03f6';
 const SHORTCUT_DISCONNECT_INSTANT_URL = 'https://www.icloud.com/shortcuts/bb66da9d9ce747b1809a349b5b95ef5f';
-// iOS setup screenshots — wired into the connect/disconnect step lists below.
+// iOS setup screenshots - wired into the connect/disconnect step lists below.
 const IMG_AUTOMATION_TAB = require('../../assets/setup-automation-tab.png');
 const IMG_CARPLAY_TRIGGER = require('../../assets/setup-carplay-trigger.png');
 const IMG_CARPLAY_WHEN = require('../../assets/setup-carplay-when.png');
@@ -143,16 +143,16 @@ import type { CarDevice } from '../../modules/car-bluetooth';
 
 // ── Step data ─────────────────────────────────────────────────────────────────
 
-// iOS connect — the prebuilt "Start CheckDrive" shortcut is added in one tap via
+// iOS connect - the prebuilt "Start CheckDrive" shortcut is added in one tap via
 // the iCloud link (button above the steps), so the only manual work left is
 // wiring the CarPlay automation. (The old 1–5 "build the shortcut by hand" steps
-// are gone — the share link replaces them.)
+// are gone - the share link replaces them.)
 const IOS_CONNECT_STEPS: Step[] = [
   {
     n: '1',
     title: 'Tap "Add the Enter car shortcut" above',
     detail:
-      'That adds the ready-made shortcut in one tap — no building it by hand. iOS may show an ' +
+      'That adds the ready-made shortcut in one tap - no building it by hand. iOS may show an ' +
       '"untrusted shortcut" review; that\'s normal, scroll down and tap "Add Shortcut".',
   },
   {
@@ -172,7 +172,7 @@ const IOS_CONNECT_STEPS: Step[] = [
     n: '4',
     title: 'Pick "Is Connected" and "Run Immediately"',
     detail:
-      'Select "Is Connected", then choose "Run Immediately" so it fires silently — that\'s the ' +
+      'Select "Is Connected", then choose "Run Immediately" so it fires silently - that\'s the ' +
       'newer iOS replacement for the old "Ask Before Running" toggle. Leave "Notify When Run" ' +
       'off and tap Next.',
     image: IMG_CARPLAY_WHEN,
@@ -182,12 +182,12 @@ const IOS_CONNECT_STEPS: Step[] = [
     title: 'Add Action → "Run Shortcut" → your CheckDrive shortcut → Done',
     detail:
       'Add a "Run Shortcut" action and pick the shortcut you added (e.g. "Open CheckDrive on ' +
-      'CarPlay connect"). Tap Done — it now runs every time CarPlay connects.',
+      'CarPlay connect"). Tap Done - it now runs every time CarPlay connects.',
     image: IMG_CONNECT_DONE,
   },
 ];
 
-// iOS disconnect — same shape: add the prebuilt exit shortcut via the link, then
+// iOS disconnect - same shape: add the prebuilt exit shortcut via the link, then
 // wire the "Is Disconnected" automation.
 const IOS_DISCONNECT_STEPS: Step[] = [
   {
@@ -213,9 +213,9 @@ const IOS_DISCONNECT_STEPS: Step[] = [
   },
 ];
 
-// iOS "quieter" variant — a Shortcut whose only action is "Show Notification".
+// iOS "quieter" variant - a Shortcut whose only action is "Show Notification".
 // IMPORTANT iOS LIMITATION: Shortcuts' Show Notification action is fire-and-
-// forget — you CANNOT attach a tap/deep-link action to it, so tapping the
+// forget - you CANNOT attach a tap/deep-link action to it, so tapping the
 // banner opens the Shortcuts app, not CheckDrive. It's therefore a passive
 // reminder. The actionable "tap to open my checklist" notification on iOS is
 // the one CheckDrive itself posts via the Open URLs method (the app opens
@@ -250,12 +250,12 @@ const IOS_NOTIFY_STEPS = [
     title: 'Heads-up: the tap opens Shortcuts, not CheckDrive',
     detail:
       'iOS can\'t deep-link a Show Notification on tap, so tapping it opens the Shortcuts ' +
-      'app — it\'s a passive reminder. For a tap that opens your checklist, use the "Open ' +
+      'app - it\'s a passive reminder. For a tap that opens your checklist, use the "Open ' +
       'URLs" method above instead.',
   },
 ];
 
-// One-time Android permissions step — shared by Automate and Tasker, NOT
+// One-time Android permissions step - shared by Automate and Tasker, NOT
 // needed for Bixby Routines (Bixby is a system app and isn't subject to the
 // same battery / overlay restrictions). Shown once at the top of the Android
 // section rather than duplicated inside every tool's dropdown.
@@ -264,14 +264,14 @@ const ANDROID_PERMISSIONS_STEP = {
   detail:
     'Not needed for Bixby Routines (system app). For any installed app (e.g. ' +
     'AutomateIt), without these the trigger silently fails when the screen is off:\n\n' +
-    '① Draw over other apps — Settings → Apps → [app] → Advanced → Display over ' +
+    '① Draw over other apps - Settings → Apps → [app] → Advanced → Display over ' +
     'other apps → Allow.\n\n' +
-    '② Unrestricted battery — Settings → Apps → [app] → Battery → Unrestricted.\n\n' +
-    'Manufacturer extras: Samsung — also enable Auto-start. Xiaomi — Security → ' +
-    'Autostart. OnePlus — check Battery Optimization.',
+    '② Unrestricted battery - Settings → Apps → [app] → Battery → Unrestricted.\n\n' +
+    'Manufacturer extras: Samsung - also enable Auto-start. Xiaomi - Security → ' +
+    'Autostart. OnePlus - check Battery Optimization.',
 };
 
-// ── Automate by LlamaLab (free) — SHELVED ────────────────────────────────────
+// ── Automate by LlamaLab (free) - SHELVED ────────────────────────────────────
 // Removed from the UI to keep the screen focused on the one confirmed-working
 // tool (AutomateIt). The universal intent recipe is now summarized in the
 // "Prefer a different automation app?" dropdown instead. Kept here in case we
@@ -289,32 +289,32 @@ const ANDROID_AUTOMATE_STEPS = [
   },
   {
     n: '2',
-    title: 'Add the detector — "Bluetooth connected?" set to "When changed"',
+    title: 'Add the detector - "Bluetooth connected?" set to "When changed"',
     detail:
-      'Tap + → Bluetooth → "Bluetooth connected?" — this is the "check if connected" ' +
+      'Tap + → Bluetooth → "Bluetooth connected?" - this is the "check if connected" ' +
       'block you found, the one with Yes/No outputs. Open it and set:\n' +
       '  Device:  tap the field → Pick device → your car\n' +
       '  Trigger: When changed   (NOT "Immediately")\n\n' +
       'Heads-up: the "Bluetooth connect" and "Bluetooth disconnect" blocks you also saw ' +
-      'are ACTIONS that make your phone connect/disconnect — they don\'t detect the car, ' +
+      'are ACTIONS that make your phone connect/disconnect - they don\'t detect the car, ' +
       'so ignore them. "Bluetooth connected?" with "When changed" is the detector: it ' +
       'fires every time the car connects OR disconnects.',
   },
   {
     n: '3',
-    title: 'Add the connect launcher — "App start", NOT "App broadcast send"',
+    title: 'Add the connect launcher - "App start", NOT "App broadcast send"',
     detail:
       'Automate has no plain "URL" block (that\'s why you only found "App broadcast"). ' +
-      'Tap + → Apps → "App start" — this launches an app by intent. Set:\n' +
+      'Tap + → Apps → "App start" - this launches an app by intent. Set:\n' +
       '  Action:   android.intent.action.VIEW\n' +
       '  Data URI: checkdrive://trigger\n' +
       'Leave Package / Class blank so Android resolves it to CheckDrive by the scheme.\n\n' +
-      'Do NOT use "App broadcast send" — it routes through Android\'s broadcast system ' +
+      'Do NOT use "App broadcast send" - it routes through Android\'s broadcast system ' +
       '(where CheckDrive\'s Firebase receivers live) and will NOT open the app.',
   },
   {
     n: '4',
-    title: 'Add the disconnect launcher — a second "App start"',
+    title: 'Add the disconnect launcher - a second "App start"',
     detail:
       'Add another "App start" block with the same Action but:\n' +
       '  Data URI: checkdrive://disconnect',
@@ -337,18 +337,18 @@ const ANDROID_AUTOMATE_STEPS = [
     detail:
       'Tap back, then tap the play button under the flow on Automate\'s home screen. ' +
       'This one flow now opens CheckDrive when your car connects and fires the ' +
-      'disconnect link when it drops — no second flow needed.\n\n' +
+      'disconnect link when it drops - no second flow needed.\n\n' +
       'If "App start" is hard to configure, AutomateIt (above) is the simpler route.',
   },
 ];
 */
 
-// ── AutomateIt by SmarterApps (free) — the one documented tool ───────────────
+// ── AutomateIt by SmarterApps (free) - the one documented tool ───────────────
 // Rule-based (Trigger + Action) with discrete "Bluetooth Connected" /
 // "Bluetooth Disconnected" triggers. CONFIRMED WORKING (per testing):
 //   Action = "Launch Intent", component type = Activity (NOT Broadcast),
 //   Advanced → Action = android.intent.action.VIEW, Data = checkdrive://…
-// BOTH Advanced fields are required — leaving Action blank won't resolve the
+// BOTH Advanced fields are required - leaving Action blank won't resolve the
 // custom scheme. The quieter variant swaps "Launch Intent" for the
 // "Notification" action, configured identically, so nothing opens until the
 // user taps the notification.
@@ -398,8 +398,8 @@ const ANDROID_AUTOMATEIT_DISCONNECT_STEPS = [
     n: '2',
     title: 'Action: Launch Intent → Activity → Advanced → Action + Data',
     detail:
-      'Same action as the connect rule — "Launch Intent", component type Activity (not ' +
-      'Broadcast), Advanced → Action = android.intent.action.VIEW — but set Data to:  ' +
+      'Same action as the connect rule - "Launch Intent", component type Activity (not ' +
+      'Broadcast), Advanced → Action = android.intent.action.VIEW - but set Data to:  ' +
       'checkdrive://disconnect',
   },
   {
@@ -410,7 +410,7 @@ const ANDROID_AUTOMATEIT_DISCONNECT_STEPS = [
   },
 ];
 
-// Quieter variant — same rules, but the action is "Notification" instead of
+// Quieter variant - same rules, but the action is "Notification" instead of
 // "Launch Intent". The notification's launch settings are filled in identically
 // (Activity / Action = VIEW / Data = checkdrive://…), so tapping it opens
 // CheckDrive while nothing pops up on its own.
@@ -437,11 +437,11 @@ const ANDROID_AUTOMATEIT_NOTIFY_STEPS = [
     title: 'Result: nothing opens until you tap',
     detail:
       'On connect/disconnect you now get a notification instead of the app launching. ' +
-      'CheckDrive opens only when you tap it — so it won\'t interrupt your maps or music.',
+      'CheckDrive opens only when you tap it - so it won\'t interrupt your maps or music.',
   },
 ];
 
-// ── Tasker (paid, joaomgcd) — SHELVED ────────────────────────────────────────
+// ── Tasker (paid, joaomgcd) - SHELVED ────────────────────────────────────────
 // Removed from the UI to keep the screen focused on AutomateIt. The universal
 // intent recipe (which is identical to Tasker's Send Intent) is summarized in
 // the "Prefer a different automation app?" dropdown. Kept here for reference.
@@ -453,7 +453,7 @@ const ANDROID_TASKER_CONNECT_STEPS = [
     n: '1',
     title: 'Install Tasker by joaomgcd from Google Play (~$3.50)',
     detail:
-      'Search "Tasker" — the real one is published by joaomgcd (icon is a stylized ' +
+      'Search "Tasker" - the real one is published by joaomgcd (icon is a stylized ' +
       'square/gear). If you don\'t see Net under Event in step 2, open Tasker → ' +
       'Preferences and turn off "Beginner Mode".',
   },
@@ -469,7 +469,7 @@ const ANDROID_TASKER_CONNECT_STEPS = [
     n: '3',
     title: 'Linked Task → System → Send Intent',
     detail:
-      'Tasker prompts for a task — tap "New Task +" and name it "CheckDrive Connect". ' +
+      'Tasker prompts for a task - tap "New Task +" and name it "CheckDrive Connect". ' +
       'Tap + to add an action → System → Send Intent. Fill in only:\n' +
       '  Action: android.intent.action.VIEW\n' +
       '  Data:   checkdrive://trigger\n' +
@@ -481,7 +481,7 @@ const ANDROID_TASKER_CONNECT_STEPS = [
     title: 'Save and arm the profile',
     detail:
       'Tap back arrows until you\'re on the Profiles list. The toggle next to your ' +
-      'profile should be on — it\'s now armed.',
+      'profile should be on - it\'s now armed.',
   },
 ];
 
@@ -511,7 +511,7 @@ const ANDROID_TASKER_DISCONNECT_STEPS = [
 ];
 */
 
-// ── Bixby Routines (Samsung only, built-in) — SHELVED ────────────────────────
+// ── Bixby Routines (Samsung only, built-in) - SHELVED ────────────────────────
 // Commented out until it can be tested on a Samsung device. Bixby's URL-launch
 // support varies by One UI version/region, and there's currently no Samsung
 // phone available to verify the "Open URL" action accepts custom schemes.
@@ -541,13 +541,13 @@ const ANDROID_BIXBY_CONNECT_STEPS = [
       '  checkdrive://trigger\n\n' +
       'Caveat: some One UI versions only accept http:// or https:// in this field. ' +
       'If your phone rejects the custom scheme, Bixby Routines won\'t work for ' +
-      'CheckDrive — use AutomateIt or Automate instead.',
+      'CheckDrive - use AutomateIt or Automate instead.',
   },
   {
     n: '4',
     title: 'Save the routine',
     detail:
-      'Name it "CheckDrive: car connect" and save. It runs immediately and silently — ' +
+      'Name it "CheckDrive: car connect" and save. It runs immediately and silently - ' +
       'no extra battery or overlay permissions required since it\'s a system feature.',
   },
 ];
@@ -555,7 +555,7 @@ const ANDROID_BIXBY_CONNECT_STEPS = [
 const ANDROID_BIXBY_DISCONNECT_STEPS = [
   {
     n: '1',
-    title: 'Add a second routine — Disconnected from specific device',
+    title: 'Add a second routine - Disconnected from specific device',
     detail:
       'Routines tab → + → "If" → Connectivity → Bluetooth device → Disconnected from ' +
       'specific device → pick your car.',
@@ -606,20 +606,20 @@ function Collapsible({
           color={theme.colors.primaryDeep}
         />
       </TouchableOpacity>
-      {/* Body is rendered conditionally — the un-rendered state takes zero
+      {/* Body is rendered conditionally - the un-rendered state takes zero
           vertical space, so the collapsed card is just the title row. */}
       {expanded && <View style={s.collapsibleBody}>{children}</View>}
     </View>
   );
 }
 
-// Numbered step list — extracted because we render six of these on the Android
+// Numbered step list - extracted because we render six of these on the Android
 // tab (three tools × connect/disconnect) plus two on iOS. Inlining the JSX in
 // every spot would triple the size of the render function for no benefit.
 type Step = { n: string; title: string; detail: string; image?: ImageSourcePropType };
 
 // Optional screenshot under a step. Sized in explicit POINTS, not "100%": a
-// percentage width didn't reliably constrain these large (~960px) PNGs — the
+// percentage width didn't reliably constrain these large (~960px) PNGs - the
 // image kept its intrinsic width and ran off-screen. boxW = screen width minus
 // the scroll (16*2) and card (16*2) padding and the step-number column (24 +
 // 12 gap). Height is derived from the asset's own ratio so it never distorts.
@@ -649,7 +649,7 @@ function StepList({ steps }: { steps: Step[] }) {
             <Text style={s.stepNumText}>{step.n}</Text>
           </View>
           {/* minWidth:0 lets this flex column shrink below its content's
-              intrinsic size — without it, a wide screenshot (≈960px) sets an
+              intrinsic size - without it, a wide screenshot (≈960px) sets an
               auto min-width floor and pushes the row off-screen. */}
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={s.stepTitle}>{step.title}</Text>
@@ -729,7 +729,7 @@ function NativeDetectSection() {
       setCar(picked);
       Alert.alert(
         'Car linked',
-        `CheckDrive will now watch "${picked.name ?? picked.address}". Connect to it to test — ` +
+        `CheckDrive will now watch "${picked.name ?? picked.address}". Connect to it to test - ` +
           'you should get a notification (or the app opens, per your settings).'
       );
     } catch (e: any) {
@@ -747,7 +747,7 @@ function NativeDetectSection() {
 
   // Primary path: pick the car from the phone's already-paired devices. A car
   // used with Android Auto is always bonded, so it's guaranteed to be in this
-  // list — unlike the CDM scan (handlePick), which won't show a paired,
+  // list - unlike the CDM scan (handlePick), which won't show a paired,
   // non-discoverable car.
   async function handleChoosePaired() {
     setBusy(true);
@@ -778,14 +778,14 @@ function NativeDetectSection() {
   }
 
   // Save the chosen paired device as the watched car. Detection runs off this
-  // saved address via the manifest ACL receiver — no CDM association needed.
+  // saved address via the manifest ACL receiver - no CDM association needed.
   async function selectPaired(device: CarDevice) {
     setPickerVisible(false);
     await CarBluetooth.setCar(device.address, device.name);
     setCar(device);
     Alert.alert(
       'Car linked',
-      `CheckDrive will now watch "${device.name ?? device.address}". Connect to it to test — ` +
+      `CheckDrive will now watch "${device.name ?? device.address}". Connect to it to test - ` +
         'you should get a notification (or the app opens, per your settings).'
     );
   }
@@ -805,7 +805,7 @@ function NativeDetectSection() {
     ]);
   }
 
-  // Still probing — render nothing to avoid a flash of the wrong state.
+  // Still probing - render nothing to avoid a flash of the wrong state.
   if (supported === null) return null;
 
   if (!supported) {
@@ -828,7 +828,7 @@ function NativeDetectSection() {
       </View>
       <Text style={s.infoTitle}>Let CheckDrive watch your car’s Bluetooth</Text>
       <Text style={s.infoText}>
-        Pick your car once from your paired Bluetooth devices and CheckDrive detects it directly —
+        Pick your car once from your paired Bluetooth devices and CheckDrive detects it directly -
         no AutomateIt or Shortcuts needed. On connect you’ll get a “tap to run your checklist”
         notification (Pro can auto-open the default list instead, via Settings).
       </Text>
@@ -939,7 +939,7 @@ export function CarDetectionSetupScreen() {
           <Text style={s.title}>Car Detection Setup</Text>
         </View>
 
-        {/* Explanation card — answers "why can't the app do this automatically?"
+        {/* Explanation card - answers "why can't the app do this automatically?"
             Platform-specific so the iOS copy never references Android Auto. */}
         <View style={s.card}>
           <Text style={s.infoTitle}>Why can't the app detect my car automatically?</Text>
@@ -947,15 +947,15 @@ export function CarDetectionSetupScreen() {
             {isIOS
               ? "Apple restricts CarPlay SDK access to approved app categories (navigation, " +
                 "audio, etc.). The safest solution is to wire up a one-time Shortcuts " +
-                "automation — it takes about 5 minutes and works reliably."
+                "automation - it takes about 5 minutes and works reliably."
               : "Android restricts background access to car-connection events. The safest " +
                 "option is to let CheckDrive watch your car's Bluetooth directly, or wire up a " +
-                "one-time automation — it takes about 5 minutes and works reliably."}
+                "one-time automation - it takes about 5 minutes and works reliably."}
           </Text>
         </View>
 
         {/* ──────────────────────────────────────────────────────────────────
-            iOS — single tool (Shortcuts), connect/disconnect as sections.
+            iOS - single tool (Shortcuts), connect/disconnect as sections.
             Only ever rendered on iOS devices.
             ────────────────────────────────────────────────────────────── */}
         {isIOS && (
@@ -970,7 +970,7 @@ export function CarDetectionSetupScreen() {
               <Text style={s.nativeBtnText}>  Add the "Enter car" shortcut</Text>
             </TouchableOpacity>
             <Text style={s.urlHint}>
-              Fastest path — adds the ready-made shortcut in one tap (no building it by hand). iOS
+              Fastest path - adds the ready-made shortcut in one tap (no building it by hand). iOS
               may show an "untrusted shortcut" review; that's normal, tap Add Shortcut. Then wire
               the automation in the steps below.
             </Text>
@@ -985,7 +985,7 @@ export function CarDetectionSetupScreen() {
               <Text style={s.noteText}>
                 iOS won't let a CarPlay automation open an app directly, so it runs a tiny shortcut
                 that does. The ready-made "Enter car" shortcut shows a quick "Open CheckDrive?"
-                prompt when you connect — tap OK to open, or dismiss it — so it never just barges
+                prompt when you connect - tap OK to open, or dismiss it - so it never just barges
                 in. (Want it to open instantly with no prompt? Use the instant-open version of the
                 shortcut.)
               </Text>
@@ -998,7 +998,7 @@ export function CarDetectionSetupScreen() {
               <View style={s.urlRow}>
                 <Text style={s.urlText} selectable>checkdrive://trigger</Text>
               </View>
-              <Text style={s.urlHint}>The ready-made shortcut already uses this — shown for reference / troubleshooting.</Text>
+              <Text style={s.urlHint}>The ready-made shortcut already uses this - shown for reference / troubleshooting.</Text>
             </View>
 
             <Text style={s.sectionLabel}>Disconnect automation</Text>
@@ -1037,7 +1037,7 @@ export function CarDetectionSetupScreen() {
               <View style={s.urlRow}>
                 <Text style={s.urlText} selectable>checkdrive://disconnect</Text>
               </View>
-              <Text style={s.urlHint}>The ready-made shortcut already uses this — shown for reference / troubleshooting.</Text>
+              <Text style={s.urlHint}>The ready-made shortcut already uses this - shown for reference / troubleshooting.</Text>
             </View>
 
             {/* iOS notification options + the deep-link-opens-app reality,
@@ -1046,7 +1046,7 @@ export function CarDetectionSetupScreen() {
 
             <Collapsible title="Will this open the app every time?">
               <Text style={s.noteText}>
-                A deep link always opens the app on iOS — that part can't be changed — but the
+                A deep link always opens the app on iOS - that part can't be changed - but the
                 ready-made shortcut shows a quick "Open CheckDrive?" prompt first, so the app only
                 opens when you tap OK. Tap Cancel and nothing launches.{'\n\n'}
                 <Text style={{ fontWeight: '600' }}>Once it opens, it posts a "tap to run your
@@ -1079,7 +1079,7 @@ export function CarDetectionSetupScreen() {
                 way </Text>to get a dismissible prompt, because its OK button actually opens
                 your checklist. This Show Notification path is only for a fully passive banner:
                 it posts a reminder without opening CheckDrive, but iOS won't let that banner
-                deep-link, so tapping it opens the Shortcuts app — not your checklist. Use it
+                deep-link, so tapping it opens the Shortcuts app - not your checklist. Use it
                 only if you truly want a no-tap reminder and don't mind that the tap goes
                 nowhere useful.
               </Text>
@@ -1089,7 +1089,7 @@ export function CarDetectionSetupScreen() {
         )}
 
         {/* ──────────────────────────────────────────────────────────────────
-            Android — three tools, each in its own dropdown. Common pieces
+            Android - three tools, each in its own dropdown. Common pieces
             (intro, warning, copyable URLs, permissions) are pulled to the top
             so the user sees them without having to open every dropdown. Only
             ever rendered on Android devices (never exposed in the iOS app).
@@ -1105,17 +1105,17 @@ export function CarDetectionSetupScreen() {
             <Collapsible title="Do I need to install anything?">
               <Text style={s.noteText}>
                 <Text style={{ fontWeight: '600' }}>You don't have to do any of this. </Text>
-                CheckDrive works fine without automation — just open the app yourself when you
+                CheckDrive works fine without automation - just open the app yourself when you
                 get in the car. The steps below are only for hands-free auto-launch.{'\n\n'}
                 We document one app in detail: <Text style={{ fontWeight: '600' }}>AutomateIt
                 by SmarterApps </Text>(free). It has simple, separate "Bluetooth
                 connected/disconnected" triggers, so it's the easiest to follow.{'\n\n'}
                 Other automation apps (Tasker, Automate by LlamaLab, MacroDroid, etc.) work
-                too — the intent recipe is the same in all of them — but you'll set those up
+                too - the intent recipe is the same in all of them - but you'll set those up
                 yourself. See "Prefer a different automation app?" below for the recipe.{'\n\n'}
                 Why can't the app do this on its own? Android Auto and Bluetooth-event detection
                 require native Java/Kotlin code that's not available in the current build. These
-                tools act as a permitted intermediary — they listen for the car's Bluetooth
+                tools act as a permitted intermediary - they listen for the car's Bluetooth
                 connection and fire a deep-link URL that opens CheckDrive.
               </Text>
             </Collapsible>
@@ -1124,12 +1124,12 @@ export function CarDetectionSetupScreen() {
               <Ionicons name="warning-outline" size={16} color={theme.colors.warning} />
               <Text style={s.warnText}>
                 <Text style={{ fontWeight: '600' }}>Standalone build required. </Text>
-                This only works with the app installed from Google Play or an EAS Build —
+                This only works with the app installed from Google Play or an EAS Build -
                 not through Expo Go.
               </Text>
             </View> */}
 
-            {/* Copyable URLs — the two deep links every automation app fires. */}
+            {/* Copyable URLs - the two deep links every automation app fires. */}
             <View style={s.urlCard}>
               <Text style={s.urlLabel}>Connect URL</Text>
               <View style={s.urlRow}>
@@ -1146,13 +1146,13 @@ export function CarDetectionSetupScreen() {
               <Text style={s.urlHint}>Long-press to copy</Text>
             </View>
 
-            {/* Sets expectations: firing the deep link opens the app — that's
+            {/* Sets expectations: firing the deep link opens the app - that's
                 inherent to VIEW intents. Explains the in-app toggle and points
                 to the AutomateIt "Notification" variant for those who want it
                 quiet. */}
             <Collapsible title="Will this pop the app open every time?">
               <Text style={s.noteText}>
-                Yes — by design. The checkdrive:// link is a deep link, and opening the
+                Yes - by design. The checkdrive:// link is a deep link, and opening the
                 app is exactly what a deep link does, so firing it directly always brings
                 CheckDrive to the foreground.{'\n\n'}
                 <Text style={{ fontWeight: '600' }}>Once open, it posts a "tap to run your
@@ -1161,25 +1161,25 @@ export function CarDetectionSetupScreen() {
                 list instead.{'\n\n'}
                 <Text style={{ fontWeight: '600' }}>Want it fully quiet (no app launch)? </Text>
                 Use the "Quieter: notification instead of opening" steps in the AutomateIt
-                section below — its Notification action shows an alert whose tap opens
+                section below - its Notification action shows an alert whose tap opens
                 CheckDrive, so nothing launches until you tap.
               </Text>
             </Collapsible>
 
             <Text style={s.sectionLabel}>Set up the automation</Text>
 
-            {/* Permissions live in their own collapsible — keeping them outside
+            {/* Permissions live in their own collapsible - keeping them outside
                 the tool dropdown avoids cluttering the steps. */}
             <Collapsible title="One-time permissions (installed apps)">
               <Text style={s.noteText}>{ANDROID_PERMISSIONS_STEP.detail}</Text>
             </Collapsible>
 
-            {/* AutomateIt is the one documented tool — default-expanded. It has
+            {/* AutomateIt is the one documented tool - default-expanded. It has
                 the simplest discrete connect/disconnect triggers and is the
                 confirmed-working setup. Connect, disconnect, and the quieter
                 notification variant are all sub-sections here. */}
             <Collapsible
-              title="AutomateIt by SmarterApps — free (recommended)"
+              title="AutomateIt by SmarterApps - free (recommended)"
               defaultExpanded
             >
               <Text style={s.subSectionLabel}>Connect setup</Text>
@@ -1190,12 +1190,12 @@ export function CarDetectionSetupScreen() {
               <StepList steps={ANDROID_AUTOMATEIT_NOTIFY_STEPS} />
             </Collapsible>
 
-            {/* Universal recipe for any other automation app — we don't document
+            {/* Universal recipe for any other automation app - we don't document
                 them step-by-step, but the intent fields are always the same. */}
             <Collapsible title="Prefer a different automation app?">
               <Text style={s.noteText}>
                 Any app that can run an action when a specific Bluetooth device connects or
-                disconnects will work — Tasker, Automate by LlamaLab, MacroDroid, and others.
+                disconnects will work - Tasker, Automate by LlamaLab, MacroDroid, and others.
                 The menus differ, but the recipe is always the same:{'\n\n'}
                 <Text style={{ fontWeight: '600' }}>Trigger: </Text>your car's Bluetooth
                 connects (make a second rule for disconnects).{'\n'}
@@ -1210,10 +1210,10 @@ export function CarDetectionSetupScreen() {
               </Text>
             </Collapsible>
 
-            {/* Bixby Routines — SHELVED until testable on a Samsung device.
+            {/* Bixby Routines - SHELVED until testable on a Samsung device.
                 Re-activate by uncommenting the ANDROID_BIXBY_* arrays above and
                 this Collapsible:
-            <Collapsible title="Bixby Routines — Samsung only, built-in">
+            <Collapsible title="Bixby Routines - Samsung only, built-in">
               <Text style={s.subSectionLabel}>Connect setup</Text>
               <StepList steps={ANDROID_BIXBY_CONNECT_STEPS} />
               <Text style={s.subSectionLabel}>Disconnect setup</Text>
@@ -1271,7 +1271,7 @@ const s = StyleSheet.create({
   infoTitle: { fontSize: 14, fontWeight: '500', color: theme.colors.textPrimary, marginBottom: 8 },
   infoText: { fontSize: 13, color: theme.colors.textSecondary, lineHeight: 19 },
 
-  // Amber warning callout — Android prerequisites, shown once before connect steps
+  // Amber warning callout - Android prerequisites, shown once before connect steps
   warnCard: {
     backgroundColor: theme.colors.warningLight,
     borderWidth: 0.5,
@@ -1299,7 +1299,7 @@ const s = StyleSheet.create({
   },
   noteText: { flex: 1, fontSize: 13, color: theme.colors.primaryDeep, lineHeight: 18 },
 
-  // Native-detection card — the recommended Android path. Slightly stronger
+  // Native-detection card - the recommended Android path. Slightly stronger
   // border/tint than a plain card so it reads as the primary call to action.
   nativeCard: {
     backgroundColor: theme.colors.primaryLight,
@@ -1367,7 +1367,7 @@ const s = StyleSheet.create({
   scanLink: { alignItems: 'center', paddingVertical: 10, marginTop: 2 },
   scanLinkText: { fontSize: 13, fontWeight: '500', color: theme.colors.primaryDeep },
 
-  // Paired-device picker (bottom sheet) — mirrors the HomeScreen ⋮ menu pattern.
+  // Paired-device picker (bottom sheet) - mirrors the HomeScreen ⋮ menu pattern.
   pickerBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',

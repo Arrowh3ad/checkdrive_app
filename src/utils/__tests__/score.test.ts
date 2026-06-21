@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Tests for computeTripScore — the regular-trip scoring rules (ignore + only
+// Tests for computeTripScore - the regular-trip scoring rules (ignore + only
 // count phases that were run). Pure logic, no React/device.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -24,7 +24,7 @@ const twoPhaseBase: ScoreInput = {
   ignored: {},
 };
 
-describe('computeTripScore — full runs', () => {
+describe('computeTripScore - full runs', () => {
   it('two-phase, departure done + everything checked → 4/4 complete', () => {
     const r = computeTripScore({
       ...twoPhaseBase,
@@ -40,10 +40,10 @@ describe('computeTripScore — full runs', () => {
   });
 });
 
-describe('computeTripScore — only count phases you ran', () => {
+describe('computeTripScore - only count phases you ran', () => {
   it('skips the un-run departure phase: arrival-only completion counts just the end items', () => {
     // The "ignored a connect reminder, then finished from the disconnect
-    // reminder" case — start items must NOT be logged as misses.
+    // reminder" case - start items must NOT be logged as misses.
     const r = computeTripScore({
       ...twoPhaseBase,
       startDone: false,
@@ -68,7 +68,7 @@ describe('computeTripScore — only count phases you ran', () => {
   });
 });
 
-describe('computeTripScore — ignored items', () => {
+describe('computeTripScore - ignored items', () => {
   it('drops ignored items from BOTH numerator and denominator', () => {
     // 2 start + 2 end, departure done, check s1 + e1, ignore s2 and e2 →
     // counted = s1, e1 → 2/2 complete (skipping what you didn\'t need keeps 100%).

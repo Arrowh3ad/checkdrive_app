@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// ads/adConfig.ts  —  Single source of truth for AdMob unit IDs + gating.
+// ads/adConfig.ts  -  Single source of truth for AdMob unit IDs + gating.
 //
 // TEST vs REAL
 // While __DEV__ (Metro/dev builds) we ALWAYS use Google's official test ad unit
@@ -13,7 +13,7 @@
 //   • for "Pro" users (kept for when a paid no-ads tier returns; everyone is
 //     effectively free in the current MVP),
 //   • while connected to the vehicle (never show ads mid-drive),
-//   • on a checklist run screen (caller's responsibility — banners simply
+//   • on a checklist run screen (caller's responsibility - banners simply
 //     aren't mounted there).
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -27,9 +27,9 @@ const REAL_UNITS = {
   interstitial: 'ca-app-pub-2899842987578725/5944758135',
 };
 
-// ⚠️ SAFETY FLAG — keep TRUE for every build except the final store release.
+// ⚠️ SAFETY FLAG - keep TRUE for every build except the final store release.
 // EAS preview/production builds are RELEASE builds where __DEV__ is FALSE, so
-// without this flag they would load REAL ads — and tapping your own live ads
+// without this flag they would load REAL ads - and tapping your own live ads
 // can get the AdMob account BANNED. Leave true while testing; flip to false
 // ONLY for the production build you actually submit to the store.
 export const USE_TEST_ADS = true;

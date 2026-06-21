@@ -2,7 +2,7 @@
 // Tests for the car connect/disconnect DECISION LOGIC
 // (simulateVehicleConnect / simulateVehicleDisconnect).
 //
-// This is where the real branching lives — back-seat vs. end-of-trip, the
+// This is where the real branching lives - back-seat vs. end-of-trip, the
 // open-on-connect Pro gating, and which checklist counts as "the trip". We mock
 // the *edges* (notifications, navigation, the native module, expo task/linking
 // modules) and let the REAL store run, then assert which edge functions got
@@ -28,7 +28,7 @@ jest.mock('../../../modules/car-bluetooth', () => ({
   configure: jest.fn(async () => {}),
 }));
 
-// Expo runtime bits touched at import time — neutralize them.
+// Expo runtime bits touched at import time - neutralize them.
 jest.mock('expo-linking', () => ({
   getInitialURL: jest.fn(async () => null),
   addEventListener: jest.fn(() => ({ remove: jest.fn() })),
@@ -122,13 +122,13 @@ describe('connect → open-on-connect behavior', () => {
     expect(sendTripStartNotification).not.toHaveBeenCalled();
   });
 
-  it('does not auto-open for a non-Pro user (Pro-only) — notifies instead', async () => {
+  it('does not auto-open for a non-Pro user (Pro-only) - notifies instead', async () => {
     useAppStore.setState({ checklists: [makeChecklist({ id: 'c1' })] });
     useAppStore.setState({
       settings: {
         ...useAppStore.getState().settings,
         isPro: false,
-        openChecklistOnConnect: true, // stale flag — must be ignored without Pro
+        openChecklistOnConnect: true, // stale flag - must be ignored without Pro
         defaultChecklistId: 'c1',
       },
     });

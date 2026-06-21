@@ -1,10 +1,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// screens/TripHistoryScreen.tsx  —  Full trip history (Pro feature).
+// screens/TripHistoryScreen.tsx  -  Full trip history (Pro feature).
 //
 // FEATURES
 //   • Lists all stored trip logs (up to 500 for Pro, vs 3 shown on HomeScreen)
 //   • Each row shows checklist name, relative timestamp, and completion status
-//   • Tapping a row (normal mode) expands per-item timestamps — only when the
+//   • Tapping a row (normal mode) expands per-item timestamps - only when the
 //     log was recorded on a Pro plan (has `items` data)
 //   • Multi-select delete: tap "Select" to enter select mode; checkboxes appear
 //     on each row; a "Delete (N)" bar slides in at the bottom
@@ -44,7 +44,7 @@ export function TripHistoryScreen() {
 
   // ── Select-mode state ────────────────────────────────────────────────────
   const [selectMode, setSelectMode] = useState(false);
-  // `Set<string>` is JavaScript's built-in Set collection — like an array but
+  // `Set<string>` is JavaScript's built-in Set collection - like an array but
   // with guaranteed uniqueness and O(1) `.has()` checks. TypeScript's `<string>`
   // generic constrains what can go inside it (only strings in this case).
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -147,7 +147,7 @@ export function TripHistoryScreen() {
         contentContainerStyle={s.scroll}
       >
         {tripLogs.length === 0 ? (
-          <Text style={s.empty}>No trip history yet — complete your first checklist!</Text>
+          <Text style={s.empty}>No trip history yet - complete your first checklist!</Text>
         ) : (
           <View style={s.card}>
             {tripLogs.map((log, idx) => (
@@ -211,7 +211,7 @@ function groupBySectionStable(items: TripLogItem[]): { section: string | undefin
       seen.set(key, arr);
       groups.push({ section: key, items: arr });
     }
-    // `!` is TypeScript's non-null assertion — tells the compiler Map.get()
+    // `!` is TypeScript's non-null assertion - tells the compiler Map.get()
     // won't be undefined here because we always set the key just above.
     seen.get(key)!.push(item);
   }
@@ -293,7 +293,7 @@ function LogRow({
         <View style={r.itemList}>
           {groupBySectionStable(log.items!).map((group, gi) => (
             <View key={group.section ?? gi}>
-              {/* Section header — only rendered when items carry section labels */}
+              {/* Section header - only rendered when items carry section labels */}
               {group.section && (
                 <Text style={r.sectionHeader}>{group.section}</Text>
               )}

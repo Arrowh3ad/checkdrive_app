@@ -1,12 +1,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// screens/SettingsScreen.tsx  —  User preferences and account management.
+// screens/SettingsScreen.tsx  -  User preferences and account management.
 //
 // SECTIONS
 //   • Pro upgrade banner (free users) OR Pro-active status (Pro users)
-//   • Preferences — push notifications, BT auto-detect, and (Pro only)
+//   • Preferences - push notifications, BT auto-detect, and (Pro only)
 //     open-my-checklist-on-connect
-//   • Car detection setup — link to the setup guide
-//   • Stats grid — total trips + checklist count
+//   • Car detection setup - link to the setup guide
+//   • Stats grid - total trips + checklist count
 //   • Version footer
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -93,7 +93,7 @@ export function SettingsScreen() {
           {/* Pro-only: jumping straight into the default checklist on connect.
               For free users the connect flow already posts an actionable "tap to
               run your checklist" notification, so an "open" toggle would do
-              nothing useful (or worse — it'd suppress that notification and just
+              nothing useful (or worse - it'd suppress that notification and just
               land them on Home). So we only surface it for Pro. */}
           {settings.isPro && (
             <>

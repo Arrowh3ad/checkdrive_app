@@ -1,13 +1,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// navigation/navigationRef.ts  —  Standalone navigation ref.
+// navigation/navigationRef.ts  -  Standalone navigation ref.
 //
 // Lives in its own module (separate from AppNavigator) so code OUTSIDE the React
 // tree can drive navigation without importing AppNavigator. AppNavigator imports
-// every screen, and some of those screens need the ref too — e.g. HomeScreen
+// every screen, and some of those screens need the ref too - e.g. HomeScreen
 // pulls in useCarDetection, which navigates on the car-connect deep link.
 // Importing the ref from AppNavigator would form a require cycle:
 //   AppNavigator → HomeScreen → useCarDetection → AppNavigator
-// Keeping the ref here — importing only from the nav library + types — breaks
+// Keeping the ref here - importing only from the nav library + types - breaks
 // that cycle. AppNavigator re-exports it so existing import sites keep working.
 // ─────────────────────────────────────────────────────────────────────────────
 

@@ -1,17 +1,17 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// navigation/AppNavigator.tsx  —  Root navigation stack + deep-link config.
+// navigation/AppNavigator.tsx  -  Root navigation stack + deep-link config.
 //
 // React Navigation v7 drives all screen transitions. We use a native stack so
 // screens animate with native UINavigationController push/pop on iOS and the
-// equivalent FragmentTransaction on Android — smoother than the JS-driven
+// equivalent FragmentTransaction on Android - smoother than the JS-driven
 // animated stack.
 //
 // DEEP LINKS
 // The `linking` config maps URL paths to screen names. Two prefixes are
 // registered:
-//   • `checkdrive://`  — the custom URL scheme used by iOS Shortcuts and
+//   • `checkdrive://`  - the custom URL scheme used by iOS Shortcuts and
 //                        Android automation tools to launch the app.
-//   • `Linking.createURL('/')` — the Expo development-mode URL (e.g.
+//   • `Linking.createURL('/')` - the Expo development-mode URL (e.g.
 //                        `exp://192.168.1.5:19000/`) so deep links also work
 //                        when running via Expo Go during development.
 //
@@ -44,7 +44,7 @@ import { TripHistoryScreen } from '../screens/TripHistoryScreen';
 import { PaywallScreen } from '../screens/PaywallScreen';
 
 // Re-exported so existing import sites (App.tsx) can keep importing it from
-// here. The ref itself is defined in ./navigationRef to avoid a require cycle —
+// here. The ref itself is defined in ./navigationRef to avoid a require cycle -
 // see that file's header for why.
 export { navigationRef };
 
@@ -52,7 +52,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 // ── Deep-link mapping ─────────────────────────────────────────────────────────
 // Each entry under `screens` maps a URL path to a screen. `:checklistId` is a
-// dynamic segment — React Navigation extracts its value and passes it as a
+// dynamic segment - React Navigation extracts its value and passes it as a
 // route param automatically.
 const linking = {
   prefixes: [
@@ -70,7 +70,7 @@ const linking = {
       // screen. They're the car connect/disconnect deep links, handled by
       // useCarDetection's raw Linking listener (which fires the notification /
       // open-on-connect flow). Mapping `trigger` to a screen (it used to point
-      // at CarDetectionSetup) made the link navigate there with no back stack —
+      // at CarDetectionSetup) made the link navigate there with no back stack -
       // a dead-end. CarDetectionSetup is reached in-app only, so it needs no
       // deep-link path.
     },
@@ -88,8 +88,8 @@ export function AppNavigator({ onReady }: { onReady?: () => void }) {
       linking={linking}
       onReady={onReady}
     >
-      {/* `headerShown: false` — every screen manages its own custom topbar */}
-      {/* `slide_from_right` — standard iOS push animation                  */}
+      {/* `headerShown: false` - every screen manages its own custom topbar */}
+      {/* `slide_from_right` - standard iOS push animation                  */}
       <Stack.Navigator
         screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
       >

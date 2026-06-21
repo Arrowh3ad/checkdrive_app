@@ -1,8 +1,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// ads/AdBanner.tsx  —  Anchored banner ad, self-gating.
+// ads/AdBanner.tsx  -  Anchored banner ad, self-gating.
 //
 // Renders an adaptive banner when ads are allowed (see adsEnabled), and renders
-// nothing otherwise — so callers can drop <AdBanner /> in unconditionally and it
+// nothing otherwise - so callers can drop <AdBanner /> in unconditionally and it
 // simply disappears for Pro users, on iOS, while driving, or in Expo Go.
 //
 // `subscribeToStore` re-checks the gate when relevant store state changes (e.g.
@@ -47,7 +47,7 @@ export function AdBanner() {
     if (timer.current) clearTimeout(timer.current);
   }, []);
 
-  // `Admob` is null when the native module isn't present (Expo Go) — bail before
+  // `Admob` is null when the native module isn't present (Expo Go) - bail before
   // touching BannerAd. adsEnabled() also already covers this, but guarding here
   // keeps TypeScript happy about the possibly-null library.
   if (!Admob || !adsEnabled() || gaveUp) return null;

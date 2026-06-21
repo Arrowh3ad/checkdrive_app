@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// hooks/useCarDetection.ts  —  Car-connection detection and response logic.
+// hooks/useCarDetection.ts  -  Car-connection detection and response logic.
 //
 // WHY CAN'T THE APP DETECT CarPlay DIRECTLY?
 // Apple restricts the CarPlay SDK to approved categories: Navigation, Audio,
@@ -30,8 +30,8 @@
 // CarDetectionSetupScreen can call them from its test buttons WITHOUT calling
 // the hook a second time. Calling the hook twice would register duplicate
 // Linking listeners (both would fire on the same URL, causing double
-// notifications). The standalone functions use `useAppStore.getState()` —
-// Zustand's outside-React accessor — so they always read current state without
+// notifications). The standalone functions use `useAppStore.getState()` -
+// Zustand's outside-React accessor - so they always read current state without
 // needing to be inside a component.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -49,7 +49,7 @@ import * as CarBluetooth from '../../modules/car-bluetooth';
 
 // ── Standalone simulation functions ──────────────────────────────────────────
 // These contain the full connect/disconnect logic and can be called from
-// anywhere — inside the hook OR from CarDetectionSetupScreen's test buttons.
+// anywhere - inside the hook OR from CarDetectionSetupScreen's test buttons.
 // `useAppStore.getState()` reads the latest store snapshot synchronously
 // without subscribing to re-renders, so calling this outside React is safe.
 
@@ -109,8 +109,8 @@ export async function simulateVehicleConnect(): Promise<void> {
   // better experience than silently landing on Home). The settings toggle is
   // also hidden for free users, but we gate on isPro here too so a stale flag
   // (e.g. from a lapsed Pro account) can't trigger this path.
-  // The app is already foregrounded here — the checkdrive:// deep link brought
-  // it up — so the navigate lands immediately. We guard on `isReady()` for the
+  // The app is already foregrounded here - the checkdrive:// deep link brought
+  // it up - so the navigate lands immediately. We guard on `isReady()` for the
   // cold-start race (deep link launches the app before the nav tree mounts);
   // if it's not ready we fall through to the notification, which has its own
   // cold-start handling in App.tsx.
@@ -124,7 +124,7 @@ export async function simulateVehicleConnect(): Promise<void> {
     } else {
       navigationRef.navigate('Home', undefined);
     }
-    return; // opened the app directly — skip the notification
+    return; // opened the app directly - skip the notification
   }
 
   // NOTIFICATION FLOW (default)
@@ -157,7 +157,7 @@ export async function simulateVehicleDisconnect(): Promise<void> {
     checklists.find((cl) => cl.id === lastTripChecklistId) ??
     checklists.find((cl) => cl.id === settings.defaultChecklistId);
 
-  // BACK-SEAT REMINDER takes priority — it's the safety alert. Fires for the
+  // BACK-SEAT REMINDER takes priority - it's the safety alert. Fires for the
   // active trip's checklist, no Pro default required. (When the app is dead, the
   // native module posts the equivalent notification using the synced config.)
   if (tripCl?.backSeatReminder) {
@@ -173,12 +173,12 @@ export async function simulateVehicleDisconnect(): Promise<void> {
     return;
   }
 
-  // Regular trips: only remind if there are arrival items to do — otherwise the
+  // Regular trips: only remind if there are arrival items to do - otherwise the
   // notification has no useful destination.
   if (tripCl?.endOfTripEnabled && tripCl.endItems.length > 0) {
     await sendTripEndNotification(tripCl.name, tripCl.id);
   } else if (!tripCl) {
-    // No trip context — send a generic reminder that lands on HomeScreen.
+    // No trip context - send a generic reminder that lands on HomeScreen.
     await sendTripEndNotification();
   }
 }
@@ -186,7 +186,7 @@ export async function simulateVehicleDisconnect(): Promise<void> {
 // ── Hook ─────────────────────────────────────────────────────────────────────
 // Used in HomeScreen to wire up the Linking listener for the whole session.
 // The hook delegates to the standalone functions above, so the `useCallback`
-// deps arrays are empty — reading via `getState()` never closes over stale
+// deps arrays are empty - reading via `getState()` never closes over stale
 // state, meaning the function identity is stable across renders and the
 // Linking effect below only registers once.
 
@@ -210,7 +210,7 @@ export function useCarDetection() {
   // ── Deep-link listener ────────────────────────────────────────────────────
   // `getInitialURL()` handles the cold-start case: the app was launched by
   // tapping the deep link from a completely closed state, so there's no
-  // 'url' event — only the initial URL value from the launcher.
+  // 'url' event - only the initial URL value from the launcher.
   // `addEventListener('url', …)` handles the warm-start / foreground case:
   // the app was already running when the Shortcuts automation fired.
   useEffect(() => {
@@ -256,7 +256,7 @@ export function useCarDetection() {
   }, [backSeatEnabled, backSeatMessage]);
 
   // Exposed so HomeScreen's Simulate button can trigger the same flow
-  // without actually connecting a car — useful during development and testing.
+  // without actually connecting a car - useful during development and testing.
   return {
     simulateConnect:    simulateVehicleConnect,
     simulateDisconnect: simulateVehicleDisconnect,

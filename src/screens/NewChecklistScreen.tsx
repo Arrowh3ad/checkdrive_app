@@ -1,20 +1,20 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// screens/NewChecklistScreen.tsx  —  Create or edit a checklist.
+// screens/NewChecklistScreen.tsx  -  Create or edit a checklist.
 //
 // DUAL MODE
 // The screen operates in two modes depending on whether `route.params.checklistId`
 // is present:
-//   • CREATE mode (no param) — all fields start empty / at defaults.
-//   • EDIT mode (param present) — all fields are pre-filled from the existing
+//   • CREATE mode (no param) - all fields start empty / at defaults.
+//   • EDIT mode (param present) - all fields are pre-filled from the existing
 //     checklist; tapping Save calls `updateChecklist()` instead of `addChecklist()`.
 //
 // FORM SECTIONS
-//   1. Name — free-text input
-//   2. Appearance — icon picker (12 Ionicons presets), Color swatches (8 themes),
+//   1. Name - free-text input
+//   2. Appearance - icon picker (12 Ionicons presets), Color swatches (8 themes),
 //      and optional custom photo via expo-image-picker
-//   3. Trip mode — multi-stop toggle (Pro-gated)
-//   4. Trigger settings — auto-detect, end-of-trip tab, back-seat reminder
-//   5. Items / Stops — changes layout based on isMultiStop:
+//   3. Trip mode - multi-stop toggle (Pro-gated)
+//   4. Trigger settings - auto-detect, end-of-trip tab, back-seat reminder
+//   5. Items / Stops - changes layout based on isMultiStop:
 //        • Regular: two ItemsCard components (start items, end items)
 //        • Multi-stop: a stop editor with per-stop name + item inputs
 //
@@ -31,7 +31,7 @@
 //
 // NAVIGATION
 // Reached from HomeScreen (new or via ⋮ menu → Edit).
-// Params: `{ checklistId?: string }` — present only in edit mode.
+// Params: `{ checklistId?: string }` - present only in edit mode.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState } from 'react';
@@ -69,7 +69,7 @@ const PRESET_ICONS: string[] = [
   'bag-handle-outline','cart-outline',   'airplane-outline', 'fitness-outline',
 ];
 
-// The 8 color themes. Each theme is a `{ bg, color }` pair — bg is the icon's
+// The 8 color themes. Each theme is a `{ bg, color }` pair - bg is the icon's
 // background square, color is the icon foreground (also used for the checkmark
 // inside the swatch).
 const PRESET_THEMES = [
@@ -115,7 +115,7 @@ export function NewChecklistScreen() {
   const [backSeatMsg, setBackSeatMsg] = useState(editingChecklist?.backSeatMessage ?? '');
   const [isMultiStop, setIsMultiStop] = useState(editingChecklist?.isMultiStop ?? false);
 
-  // Appearance state — icon, background color, and optional custom photo.
+  // Appearance state - icon, background color, and optional custom photo.
   const [selectedIcon, setSelectedIcon] = useState(
     editingChecklist?.iconName ?? 'list-outline'
   );
@@ -128,7 +128,7 @@ export function NewChecklistScreen() {
   // Stable local file URI set after the user picks a photo; undefined = no custom photo.
   const [iconUri, setIconUri] = useState<string | undefined>(editingChecklist?.iconUri);
 
-  // Regular mode item lists — stored as string labels, IDs generated at save time.
+  // Regular mode item lists - stored as string labels, IDs generated at save time.
   const [startItemInput, setStartItemInput] = useState('');
   const [startItems, setStartItems] = useState<string[]>(
     editingChecklist?.startItems.map((i) => i.label) ?? []
@@ -138,7 +138,7 @@ export function NewChecklistScreen() {
     editingChecklist?.endItems.map((i) => i.label) ?? []
   );
 
-  // Multi-stop mode — initialized with one blank stop for create mode, or
+  // Multi-stop mode - initialized with one blank stop for create mode, or
   // the existing stops mapped to the editable format.
   const [stops, setStops] = useState<EditableStop[]>(
     editingChecklist?.isMultiStop && editingChecklist.stops.length > 0
@@ -189,7 +189,7 @@ export function NewChecklistScreen() {
     setIconUri(undefined);
   }
 
-  // Selecting a preset theme clears the custom photo — the two are mutually exclusive.
+  // Selecting a preset theme clears the custom photo - the two are mutually exclusive.
   function selectTheme(bg: string, color: string) {
     setSelectedBg(bg);
     setSelectedIconColor(color);
@@ -276,7 +276,7 @@ export function NewChecklistScreen() {
       return;
     }
 
-    // Build the Checklist payload. Generate IDs for items/stops at this point —
+    // Build the Checklist payload. Generate IDs for items/stops at this point -
     // the editing state stored only labels.
     const data = {
       name: name.trim(),
@@ -299,7 +299,7 @@ export function NewChecklistScreen() {
           }))
         : [],
       isMultiStop,
-      // geofenceEnabled is deprecated (never implemented; removed from Pro) —
+      // geofenceEnabled is deprecated (never implemented; removed from Pro) -
       // always false now, kept on the type to avoid a data migration.
       geofenceEnabled: false,
       // Multi-stop trips don't have a separate end-of-trip tab.
@@ -390,7 +390,7 @@ export function NewChecklistScreen() {
               </View>
             </View>
 
-            {/* Preset icon grid — 4 columns */}
+            {/* Preset icon grid - 4 columns */}
             <Text style={ap.sectionLabel}>Icon</Text>
             <View style={ap.iconGrid}>
               {PRESET_ICONS.map((icon) => {
@@ -449,7 +449,7 @@ export function NewChecklistScreen() {
             <Text style={s.cardSectionLabel}>Trip mode</Text>
             <ToggleRow
               title="Multi-stop trip"
-              subtitle="Per-stop checklists with CarPlay auto-advance"
+              subtitle="Per-stop checklists with auto-advance as you drive"
               value={isMultiStop}
               onToggle={setIsMultiStop}
             />
@@ -458,7 +458,7 @@ export function NewChecklistScreen() {
           {/* ── Trigger settings ──────────────────────────────────────────── */}
           <View style={s.card}>
             <Text style={s.cardSectionLabel}>Trigger settings</Text>
-            {/* End-of-trip toggle is hidden for multi-stop mode — they don't have separate tabs */}
+            {/* End-of-trip toggle is hidden for multi-stop mode - they don't have separate tabs */}
             {!isMultiStop && (
               <ToggleRow
                 title="End of trip checklist"

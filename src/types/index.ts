@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// types/index.ts  —  Shared data types for the entire CheckDrive app.
+// types/index.ts  -  Shared data types for the entire CheckDrive app.
 //
 // All types live here so every file imports from one place. If a type needs
 // to change (e.g. adding a field to Checklist), there is only one file to
@@ -38,7 +38,7 @@ export type Checklist = {
   id: string;
   name: string;
 
-  // Icon appearance — either a preset Ionicons name with bg/color, or a
+  // Icon appearance - either a preset Ionicons name with bg/color, or a
   // custom photo identified by a local file URI (see NewChecklistScreen).
   iconName: string;
   iconBg: string;
@@ -69,7 +69,7 @@ export type TripLogItem = {
   label: string;
   checkedAt?: string; // ISO timestamp; absent when the item was skipped
   // Human-readable group header, e.g. "Start of trip", "End of trip",
-  // "Stop 1 — Home — depart". Items with the same section are grouped
+  // "Stop 1 - Home - depart". Items with the same section are grouped
   // together in TripHistoryScreen.
   section?: string;
 };
@@ -92,7 +92,7 @@ export type TripLog = {
 // An in-progress checklist run, persisted to AsyncStorage so the user never
 // loses progress by navigating away. There is at most one active run per
 // checklist (keyed by `checklistId`). Regular and multi-stop checklists use
-// different subsets of the fields below — the irrelevant ones just stay at
+// different subsets of the fields below - the irrelevant ones just stay at
 // their empty defaults.
 export type ActiveRun = {
   checklistId: string;
@@ -105,7 +105,7 @@ export type ActiveRun = {
   // 'end' = arrival list.
   phase: 'start' | 'end';
   // True once the departure phase has been completed. This is what drives the
-  // two-phase flow — the trip is only logged to history when the arrival phase
+  // two-phase flow - the trip is only logged to history when the arrival phase
   // is finished, but `startDone` lets the Home banner show "departed, arrival
   // pending" in the meantime.
   startDone: boolean;
@@ -115,7 +115,7 @@ export type ActiveRun = {
   checkedAt: Record<string, string>;
   // item id → "ignored/skipped for this trip". Ignored items are excluded from
   // BOTH the completion numerator and denominator, so skipping something you
-  // didn't need today (e.g. coffee) never lowers your score. Per-run only —
+  // didn't need today (e.g. coffee) never lowers your score. Per-run only -
   // cleared on reset/completion, never written back to the checklist template.
   // Optional: older persisted runs won't have it (read with `?? {}`).
   ignored?: Record<string, boolean>;
@@ -138,9 +138,9 @@ export type Settings = {
   isPro: boolean;
   totalTrips: number;
   // The user's primary checklist. Free to set (marks it with a star and makes
-  // it the checklist tied to car connect/disconnect — trip-start notification
+  // it the checklist tied to car connect/disconnect - trip-start notification
   // naming and the back-seat / end-of-trip reminder). `null` means "no default
-  // — fall back to the first checklist". Pro additionally unlocks auto-opening
+  // - fall back to the first checklist". Pro additionally unlocks auto-opening
   // this list on connect (see openChecklistOnConnect).
   defaultChecklistId: string | null;
   // When true, a car-connect trigger opens the default checklist immediately
@@ -150,7 +150,7 @@ export type Settings = {
   openChecklistOnConnect: boolean;
   // Set true once the in-app "rate this app" prompt has been requested, so it
   // only ever fires once. (Missing on older persisted installs → treated as
-  // false, which is correct — they just become eligible at the trip threshold.)
+  // false, which is correct - they just become eligible at the trip threshold.)
   reviewRequested: boolean;
   // Set true once the first-run welcome sheet has been dismissed.
   onboardingSeen: boolean;
@@ -159,11 +159,11 @@ export type Settings = {
 // The navigation param map consumed by React Navigation's `createNativeStackNavigator`.
 // Each key is a screen name; the value is the params object type or `undefined`
 // when no params are required.
-// `NewChecklist` accepts an optional `checklistId` — present in edit mode,
+// `NewChecklist` accepts an optional `checklistId` - present in edit mode,
 // absent when creating a new checklist.
 export type RootStackParamList = {
   Home: undefined;
-  // `tab` is optional — omitting it defaults to 'start'. The disconnect
+  // `tab` is optional - omitting it defaults to 'start'. The disconnect
   // notification passes 'end' so the screen opens straight to arrival items.
   ChecklistRun: { checklistId: string; tab?: 'start' | 'end' };
   MultiStop: { checklistId: string };
@@ -171,5 +171,5 @@ export type RootStackParamList = {
   Settings: undefined;
   CarDetectionSetup: undefined;
   TripHistory: undefined; // full trip history with timestamps + multi-select delete
-  Paywall: undefined; // CheckDrive Pro — lifetime unlock (no ads + unlimited lists)
+  Paywall: undefined; // CheckDrive Pro - lifetime unlock (no ads + unlimited lists)
 };

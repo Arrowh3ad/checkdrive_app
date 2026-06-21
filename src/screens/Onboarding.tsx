@@ -1,12 +1,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// screens/Onboarding.tsx  —  First-run swipeable intro (3 slides).
+// screens/Onboarding.tsx  -  First-run swipeable intro (3 slides).
 //
 // Shown once on first launch (gated by settings.onboardingSeen in HomeScreen).
-// Plain horizontal paging ScrollView — no carousel dependency. The last slide
+// Plain horizontal paging ScrollView - no carousel dependency. The last slide
 // offers a shortcut into car-detection setup, which is the one step new users
 // get stuck on (tester feedback).
 //
-// ponytail: icon placeholders mark where real screenshots go — drop PNGs in
+// ponytail: icon placeholders mark where real screenshots go - drop PNGs in
 // assets/ and swap the <Ionicons> for an <Image> per slide when they exist.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -75,7 +75,7 @@ export function Onboarding({
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={() => onDone(false)}>
       <SafeAreaView style={s.safe}>
-        {/* Skip — top right, always available */}
+        {/* Skip - top right, always available */}
         <View style={s.top}>
           <TouchableOpacity onPress={() => onDone(false)} hitSlop={10}>
             <Text style={s.skip}>Skip</Text>

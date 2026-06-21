@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// constants.ts  —  App-wide constants shared across screens and the store.
+// constants.ts  -  App-wide constants shared across screens and the store.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Free-tier checklist cap. Pro (lifetime unlock) removes this. Defined once so

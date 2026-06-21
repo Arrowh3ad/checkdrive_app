@@ -1,14 +1,14 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// screens/HomeScreen.tsx  —  Main screen of the app.
+// screens/HomeScreen.tsx  -  Main screen of the app.
 //
 // LAYOUT (top to bottom):
-//   • Topbar — app name + settings button
-//   • Vehicle Detection Banner — shows connection status; tapping it opens the
+//   • Topbar - app name + settings button
+//   • Vehicle Detection Banner - shows connection status; tapping it opens the
 //     default checklist (or the first one when no default is set).
-//   • Checklists section — list of all user checklists with a ⋮ menu per row
-//   • "New checklist" button — gated to 3 on the free plan
-//   • Recent trips — last 3 trip logs
-//   • Stats grid — trips this week + completion rate
+//   • Checklists section - list of all user checklists with a ⋮ menu per row
+//   • "New checklist" button - gated to 3 on the free plan
+//   • Recent trips - last 3 trip logs
+//   • Stats grid - trips this week + completion rate
 //
 // ⋮ MENU
 // Each checklist row has an ellipsis button that opens a bottom-sheet Modal
@@ -79,7 +79,7 @@ export function HomeScreen() {
   // The checklist whose ⋮ menu is open, or null when the sheet is closed.
   const [menuTarget, setMenuTarget] = useState<Checklist | null>(null);
 
-  // Derived stats — computed inline to avoid stale closure issues with useState.
+  // Derived stats - computed inline to avoid stale closure issues with useState.
   const recentLogs = tripLogs.slice(0, 3);
   const tripsThisWeek = tripLogs.filter(
     (l) => Date.now() - new Date(l.timestamp).getTime() < 7 * 86400000
@@ -91,7 +91,7 @@ export function HomeScreen() {
       : 0;
 
   // In-progress runs to surface in the "continue where you left off" banner.
-  // Filter out any run whose checklist no longer exists (defensive — deletes
+  // Filter out any run whose checklist no longer exists (defensive - deletes
   // already clear runs, but persisted data could theoretically drift), and show
   // the most-recently-touched first.
   const resumeRuns = activeRuns
@@ -106,7 +106,7 @@ export function HomeScreen() {
 
   // Opens the new-checklist editor, enforcing the free-tier cap. Free users get
   // FREE_CHECKLIST_LIMIT lists; beyond that we route to the paywall. Pro is
-  // unlimited. Existing lists are never touched — this only gates *creation*.
+  // unlimited. Existing lists are never touched - this only gates *creation*.
   function onNewChecklist() {
     if (!settings.isPro && checklists.length >= FREE_CHECKLIST_LIMIT) {
       Alert.alert(
@@ -217,7 +217,7 @@ export function HomeScreen() {
                 ? settings.defaultChecklistId
                   ? `Opening: ${checklists.find(c => c.id === settings.defaultChecklistId)?.name ?? 'default'}`
                   : 'Tap to run your checklist'
-                : 'Connect CarPlay or Android Auto'}
+                : 'Connect to your car'}
             </Text>
           </View>
         </TouchableOpacity>
@@ -257,7 +257,7 @@ export function HomeScreen() {
                         <Text style={s.clMeta}>{resumeMeta(run, cl)}</Text>
                       </View>
                     </TouchableOpacity>
-                    {/* ✕ discard — its own touch target, outside the main row */}
+                    {/* ✕ discard - its own touch target, outside the main row */}
                     <TouchableOpacity
                       style={s.menuBtn}
                       onPress={() => discardResume(cl)}
@@ -273,11 +273,11 @@ export function HomeScreen() {
         )}
 
         {/* The real ad banner is the anchored <AdBanner /> at the bottom of the
-            screen — no inline placeholder here. */}
+            screen - no inline placeholder here. */}
 
         {/* ── My checklists ───────────────────────────────────────────────── */}
         <Text style={s.sectionLabel}>My checklists</Text>
-        {/* Slot counter — Pro users see unlimited, free users see X/3 */}
+        {/* Slot counter - Pro users see unlimited, free users see X/3 */}
         {!settings.isPro && (
           <Text style={s.slotHint}>{checklists.length}/3 used on free plan</Text>
         )}
@@ -288,7 +288,7 @@ export function HomeScreen() {
               key={cl.id}
               style={[s.clRow, idx < checklists.length - 1 && s.clRowBorder]}
             >
-              {/* Left tappable area: icon + name + meta — navigates to the run screen */}
+              {/* Left tappable area: icon + name + meta - navigates to the run screen */}
               <TouchableOpacity
                 style={s.clMain}
                 onPress={() => onChecklistPress(cl.id, cl.isMultiStop)}
@@ -329,7 +329,7 @@ export function HomeScreen() {
                 </View>
               </TouchableOpacity>
 
-              {/* ⋮ button — deliberately outside the main TouchableOpacity so
+              {/* ⋮ button - deliberately outside the main TouchableOpacity so
                   it has its own independent touch target */}
               <TouchableOpacity
                 style={s.menuBtn}
@@ -359,7 +359,7 @@ export function HomeScreen() {
         <View style={s.card}>
           {recentLogs.length === 0 ? (
             <Text style={{ color: theme.colors.textSecondary, fontSize: 14 }}>
-              No trips yet — start your first checklist!
+              No trips yet - start your first checklist!
             </Text>
           ) : (
             recentLogs.map((log, idx) => (
@@ -397,7 +397,7 @@ export function HomeScreen() {
 
       </ScrollView>
 
-      {/* Anchored banner ad — self-gates (hidden for Pro, on iOS, while driving,
+      {/* Anchored banner ad - self-gates (hidden for Pro, on iOS, while driving,
           and in Expo Go). Sits below the scroll content, above the safe area. */}
       <AdBanner />
 
@@ -421,7 +421,7 @@ export function HomeScreen() {
                 <TouchableOpacity
                   style={s.menuItem}
                   onPress={() => {
-                    // Setting a default is free now — it just marks the list and
+                    // Setting a default is free now - it just marks the list and
                     // ties car connect/disconnect reminders to it. (Pro layers on
                     // auto-opening it via the "open on connect" setting.) Toggle:
                     // tapping the current default clears it.
@@ -481,7 +481,7 @@ export function HomeScreen() {
         </Pressable>
       </Modal>
 
-      {/* First-run swipeable intro — addresses "hard to know what to do at the
+      {/* First-run swipeable intro - addresses "hard to know what to do at the
           start". Shown once (persisted onboardingSeen flag). */}
       <Onboarding
         visible={!settings.onboardingSeen}

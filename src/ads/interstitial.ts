@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// ads/interstitial.ts  —  Frequency-capped full-screen interstitial.
+// ads/interstitial.ts  -  Frequency-capped full-screen interstitial.
 //
 // Interstitials must be preloaded, so we keep a single instance, load it ahead
 // of time, and reload after each show. `maybeShowInterstitial()` is called at a
@@ -70,7 +70,7 @@ export function maybeShowInterstitial(): boolean {
   if (now - lastShownAt < MIN_GAP_MS) return false;
 
   if (!interstitial || !loaded) {
-    // Nothing ready — make sure one is loading for next time.
+    // Nothing ready - make sure one is loading for next time.
     if (!interstitial) preload();
     return false;
   }

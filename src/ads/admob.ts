@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// ads/admob.ts  —  Guarded access to react-native-google-mobile-ads.
+// ads/admob.ts  -  Guarded access to react-native-google-mobile-ads.
 //
 // The ads library is a custom native module, so it does NOT exist in Expo Go
 // (or web). Importing it there throws an Invariant Violation at load and crashes
