@@ -114,6 +114,7 @@ import {
   Linking,
   Image,
   ImageSourcePropType,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -617,13 +618,23 @@ function Collapsible({
 // every spot would triple the size of the render function for no benefit.
 type Step = { n: string; title: string; detail: string; image?: ImageSourcePropType };
 
-// Optional screenshot under a step. Reads the asset's intrinsic size so it
-// renders at the correct proportions regardless of the source resolution — no
-// hardcoded aspect ratios to drift when a screenshot is re-exported.
+// Optional screenshot under a step. Sized in explicit POINTS, not "100%": a
+// percentage width didn't reliably constrain these large (~960px) PNGs — the
+// image kept its intrinsic width and ran off-screen. boxW = screen width minus
+// the scroll (16*2) and card (16*2) padding and the step-number column (24 +
+// 12 gap). Height is derived from the asset's own ratio so it never distorts.
 function StepImage({ source }: { source: ImageSourcePropType }) {
+  const { width: screenW } = useWindowDimensions();
   const meta = Image.resolveAssetSource(source);
-  const ratio = meta && meta.height ? meta.width / meta.height : 1;
-  return <Image source={source} style={[s.stepImage, { aspectRatio: ratio }]} resizeMode="contain" />;
+  const boxW = Math.max(0, screenW - 100);
+  const ratio = meta && meta.width ? meta.height / meta.width : 1;
+  return (
+    <Image
+      source={source}
+      style={[s.stepImage, { width: boxW, height: Math.round(boxW * ratio) }]}
+      resizeMode="contain"
+    />
+  );
 }
 
 function StepList({ steps }: { steps: Step[] }) {
@@ -1475,7 +1486,6 @@ const s = StyleSheet.create({
   stepTitle: { fontSize: 14, fontWeight: '500', color: theme.colors.textPrimary, marginBottom: 3 },
   stepDetail: { fontSize: 13, color: theme.colors.textSecondary, lineHeight: 18 },
   stepImage: {
-    width: '100%',
     marginTop: 8,
     borderRadius: theme.radius.sm,
     borderWidth: 0.5,
