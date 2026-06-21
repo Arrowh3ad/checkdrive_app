@@ -15,7 +15,8 @@
 - **EAS:** project `@arrqwhead/checkdrive`, owner `arrqwhead`, projectId `49a7d2a4-4eee-43ff-903f-b0aa5debd87f`
 - **Apple Team ID:** `64G5TP8428` (Ruiyang Wu, Individual)
 - **App Store Connect app name:** "CheckDrive: Car Checklist"
-- **App Store Connect API key** (build + submit): file `AuthKey_3F582QKS25.p8`, **Key ID `3F582QKS25`**, App Manager role. Reuse it; answer "No" to generating a new one.
+- **App Store Connect app ID (`ascAppId`):** `6780316577` — committed in `eas.json` → `submit.production.ios.ascAppId`, so `eas submit --non-interactive` no longer prompts for it.
+- **App Store Connect API key** (build + submit): file `AuthKey_3F582QKS25.p8`, **Key ID `3F582QKS25`**, App Manager role. Stored on EAS servers (used non-interactively). Reuse it; answer "No" to generating a new one.
 - **RevenueCat:** entitlement `pro`; offering `default` → Lifetime package holds BOTH store products; product ID `checkdrive_pro_lifetime` (non-consumable, same ID both stores). Keys in `src/purchases/revenuecatConfig.ts`:
   - `REVENUECAT_ANDROID_KEY = 'goog_fxwFsyzQJHQdcyQPpriKlBNEYhD'`
   - `REVENUECAT_IOS_KEY = 'appl_DIkphqoboYZEMXtSSTLsJIKCNtM'`
@@ -24,7 +25,9 @@
 - **AdMob (Android only):** app ID `ca-app-pub-2899842987578725~9187822970`. Real unit IDs live in `src/ads/adConfig.ts`, gated by `USE_TEST_ADS`.
 - **iOS Shortcut iCloud links** (in `src/screens/CarDetectionSetupScreen.tsx`):
   - Enter car (ask-first): `https://www.icloud.com/shortcuts/7b126e4f25e44f7291e349dc47f9a93e`
-  - Exit car: `https://www.icloud.com/shortcuts/9bc4c25822234379bb70daee3fda9484`
+  - Exit car (ask-first): `https://www.icloud.com/shortcuts/9bc4c25822234379bb70daee3fda9484`
+  - Enter car (instant, no prompt): `https://www.icloud.com/shortcuts/690d3df5ee8d49c7ad8c7f8a3e9c03f6`
+  - Exit car (instant, no prompt): `https://www.icloud.com/shortcuts/bb66da9d9ce747b1809a349b5b95ef5f`
 - **Legal/support site:** separate public repo **`arrowh3ad/checkdrive-legal`** (GitHub Pages) → `https://arrowh3ad.github.io/checkdrive-legal/{privacy,terms,support}.html`. Contact email: `unusualapps1@gmail.com`.
 
 ## 3. CRITICAL flags / gotchas
@@ -36,9 +39,10 @@
 - **EAS free plan: limited builds/month.** Android quota exhausted, **resets ~2026-07-01**. iOS NOT quota-blocked.
 
 ## 4. Current build state — IMPORTANT
-- **iOS build 4 (`buildNumber 4`, artifact `.../FJIUPbm5pu1zw1PvUVOKBFFAZ9DDaNfJiXcTpgs7iVM.ipa`) is now STALE.** It predates the onboarding, ignore-scoring, one-tap shortcut links, and simplified iOS setup (all committed after `4cfc22d`). **A fresh iOS build (build 5) is needed to include them** before submitting/TestFlight. iOS is not quota-blocked — build anytime: `eas build --platform ios --profile production --non-interactive` (runs unattended with cached creds), then `eas submit --platform ios --profile production`, then select the new build in App Store Connect.
+- **iOS build 5 (`buildNumber 5`) BUILT + SUBMITTED to App Store Connect on 2026-06-21** (EAS build id `69527d94-5d7e-441f-8982-0e3bd529ee83`). Apple processing → TestFlight: https://appstoreconnect.apple.com/apps/6780316577/testflight/ios . Includes onboarding (still **icon placeholders — no in-app screenshots yet**), ignore-scoring, the 5 CarPlay setup screenshots, and instant-open shortcut links. **`eas submit` only uploads the binary to ASC/TestFlight — it does NOT submit for App Store review.** The ASC listing steps (§8) + "Submit for Review" are still manual web work.
+- **NEXT iOS = build 6:** wire the 4 in-app onboarding screenshots (user captures from build 5 on TestFlight → `assets/onboard-*.png`), restructure Onboarding 3→4 slides (add an ignore/"skip" slide), swap placeholder `<Ionicons>` for `<Image>`. No `expo-updates`, so this needs a fresh build, not an OTA. Then `eas build --platform ios --profile production --non-interactive` && `eas submit --platform ios --profile production --latest` — both run unattended now (ascAppId in eas.json, ASC key stored on EAS, `autoIncrement` bumps the number; don't pre-bump).
 - **Android: last good = v14 (`versionCode 14`).** Also stale vs staging. New Android build blocked by EAS quota until ~2026-07-01. Then `eas build --platform android --profile production --non-interactive` → versionCode 15 → upload to closed testing.
-- `app.json` committed: `versionCode 14`, `ios.buildNumber 4`, `version 1.0.0`.
+- `app.json` committed: `versionCode 14`, `ios.buildNumber 5`, `version 1.0.0`.
 
 ## 5. Monetization / Pro model
 - **Free:** up to 3 checklists, ads on Android.
