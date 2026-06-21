@@ -123,6 +123,20 @@ export function SettingsScreen() {
           </View>
         </TouchableOpacity>
 
+        {/* ── Tips & tricks ────────────────────────────────────────────────── */}
+        <TouchableOpacity
+          style={s.card}
+          onPress={() => (navigation as any).navigate('Tips')}
+        >
+          <View style={s.setupRow}>
+            <View>
+              <Text style={s.setupTitle}>Tips & tricks</Text>
+              <Text style={s.setupSub}>Hidden features and shortcuts</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={theme.colors.textTertiary} />
+          </View>
+        </TouchableOpacity>
+
         {/* ── Replay tutorial ──────────────────────────────────────────────── */}
         {/* Flips onboardingSeen back off; the Onboarding intro is rendered on
             Home gated on that flag, so bouncing there re-shows it. */}

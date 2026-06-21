@@ -40,6 +40,7 @@ import { MultiStopScreen } from '../screens/MultiStopScreen';
 import { NewChecklistScreen } from '../screens/NewChecklistScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { CarDetectionSetupScreen } from '../screens/CarDetectionSetupScreen';
+import { TipsScreen } from '../screens/TipsScreen';
 import { TripHistoryScreen } from '../screens/TripHistoryScreen';
 import { PaywallScreen } from '../screens/PaywallScreen';
 
@@ -99,6 +100,7 @@ export function AppNavigator({ onReady }: { onReady?: () => void }) {
         <Stack.Screen name="NewChecklist" component={NewChecklistScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="CarDetectionSetup" component={CarDetectionSetupScreen} />
+        <Stack.Screen name="Tips" component={TipsScreen} />
         <Stack.Screen name="TripHistory" component={TripHistoryScreen} />
         {/* Paywall is presented modally so the close (X) feels like dismissing a sheet. */}
         <Stack.Screen name="Paywall" component={PaywallScreen} options={{ presentation: 'modal' }} />

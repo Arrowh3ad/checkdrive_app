@@ -170,6 +170,7 @@ export type RootStackParamList = {
   NewChecklist: { checklistId?: string } | undefined;
   Settings: undefined;
   CarDetectionSetup: undefined;
+  Tips: undefined; // Tips & Tricks reference, reached from Settings
   TripHistory: undefined; // full trip history with timestamps + multi-select delete
   Paywall: undefined; // CheckDrive Pro - lifetime unlock (no ads + unlimited lists)
 };
