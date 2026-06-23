@@ -61,7 +61,6 @@ export function HomeScreen() {
     checklists,
     tripLogs,
     settings,
-    connectedToVehicle,
     deleteChecklist,
     setDefaultChecklist,
     duplicateChecklist,
@@ -191,39 +190,10 @@ export function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── Vehicle Detection Banner ────────────────────────────────────── */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          style={[s.detectBanner, !connectedToVehicle && s.detectBannerOff]}
-          onPress={() => {
-            if (!connectedToVehicle) return;
-            // Open the default checklist if one is set, otherwise the first list.
-            const cl =
-              checklists.find((c) => c.id === settings.defaultChecklistId) ??
-              checklists[0];
-            if (cl) onChecklistPress(cl.id, cl.isMultiStop);
-          }}
-        >
-          <Ionicons
-            name={connectedToVehicle ? 'wifi' : 'wifi-outline'}
-            size={28}
-            color={connectedToVehicle ? theme.colors.primaryDark : theme.colors.textTertiary}
-          />
-          <View style={{ flex: 1 }}>
-            <Text style={[s.detectTitle, !connectedToVehicle && s.detectTitleOff]}>
-              {connectedToVehicle ? 'Car connected' : 'No car connected'}
-            </Text>
-            <Text style={[s.detectSub, !connectedToVehicle && s.detectSubOff]}>
-              {connectedToVehicle
-                ? settings.defaultChecklistId
-                  ? `Opening: ${checklists.find(c => c.id === settings.defaultChecklistId)?.name ?? 'default'}`
-                  : 'Tap to run your checklist'
-                : 'Connect to your car'}
-            </Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* Link to the setup guide for users who haven't configured Shortcuts yet */}
+        {/* Link to the car-detection setup guide. (The old "car connected"
+            status banner was removed - it relied on an iOS connect/disconnect
+            signal that can't be detected reliably, so it went stale. The resume
+            banner below covers in-progress checklists from real app state.) */}
         <TouchableOpacity onPress={() => navigation.navigate('CarDetectionSetup')}>
           <Text style={s.setupLink}>
             <Ionicons name="information-circle-outline" size={13} /> Set up auto-detection →
@@ -502,24 +472,6 @@ const s = StyleSheet.create({
   title: { flex: 1, fontSize: 18, fontWeight: '500', color: theme.colors.textPrimary },
   iconBtn: { padding: 6 },
 
-  detectBanner: {
-    backgroundColor: theme.colors.primaryLight,
-    borderWidth: 0.5,
-    borderColor: '#5DCAA5',
-    borderRadius: theme.radius.lg,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  detectBannerOff: {
-    backgroundColor: theme.colors.bgSecondary,
-    borderColor: theme.colors.borderTertiary,
-  },
-  detectTitle: { fontSize: 14, fontWeight: '500', color: theme.colors.primaryDeep },
-  detectTitleOff: { color: theme.colors.textSecondary },
-  detectSub: { fontSize: 12, color: theme.colors.primaryDark, marginTop: 2 },
-  detectSubOff: { color: theme.colors.textTertiary },
   simBtn: {
     backgroundColor: theme.colors.purple,
     borderRadius: theme.radius.md,

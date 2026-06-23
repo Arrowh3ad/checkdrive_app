@@ -215,8 +215,9 @@ interface AppStore {
 
 // How long after a connect we keep trusting the "connected" flag without a new
 // connect event. A safety net for missed iOS disconnects (Apple can't guarantee
-// the "CarPlay disconnects" Shortcut fires), so the Home banner self-corrects
-// instead of showing "Car connected" forever. Tune freely.
+// the "CarPlay disconnects" Shortcut fires), so a stale connection doesn't leave
+// the app thinking it's mid-drive forever. The flag now only gates ad
+// suppression (the Home "car connected" banner was removed). Tune freely.
 const CONNECTION_FRESH_MS = 5 * 60 * 1000;
 
 // ── Store factory ─────────────────────────────────────────────────────────────
