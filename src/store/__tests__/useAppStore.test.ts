@@ -122,6 +122,31 @@ describe('active runs + trip tracking', () => {
   });
 });
 
+describe('clearStaleConnection', () => {
+  // Regression: the Home banner showed "Car connected" forever when the iOS
+  // disconnect event never fired. connectedToVehicle is no longer persisted and
+  // self-expires; this verifies the expiry logic.
+  afterEach(() => useAppStore.setState({ connectedToVehicle: false, connectedAt: null }));
+
+  it('clears a connection with no timestamp (e.g. left over from old persistence)', () => {
+    useAppStore.setState({ connectedToVehicle: true, connectedAt: null });
+    useAppStore.getState().clearStaleConnection();
+    expect(useAppStore.getState().connectedToVehicle).toBe(false);
+  });
+
+  it('clears a connection older than the fresh window', () => {
+    useAppStore.setState({ connectedToVehicle: true, connectedAt: Date.now() - 60 * 60 * 1000 });
+    useAppStore.getState().clearStaleConnection();
+    expect(useAppStore.getState().connectedToVehicle).toBe(false);
+  });
+
+  it('keeps a fresh connection', () => {
+    useAppStore.setState({ connectedToVehicle: true, connectedAt: Date.now() });
+    useAppStore.getState().clearStaleConnection();
+    expect(useAppStore.getState().connectedToVehicle).toBe(true);
+  });
+});
+
 describe('deleteChecklist', () => {
   it('clears the deleted checklist if it was the default', () => {
     useAppStore.setState({ checklists: [makeChecklist({ id: 'c1' })] });

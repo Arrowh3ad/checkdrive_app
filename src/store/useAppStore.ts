@@ -154,6 +154,9 @@ interface AppStore {
   tripLogs: TripLog[];
   settings: Settings;
   connectedToVehicle: boolean;
+  // Timestamp (ms) of the last connect, or null. Drives clearStaleConnection so
+  // a "connected" flag expires instead of sticking. Not persisted.
+  connectedAt: number | null;
 
   // In-progress checklist runs (both regular and multi-stop). Persisted so the
   // user can navigate away and resume later, and so the Home screen can show a
@@ -183,6 +186,9 @@ interface AppStore {
   deleteTripLogs: (ids: string[]) => void;
   updateSettings: (data: Partial<Settings>) => void;
   setConnectedToVehicle: (connected: boolean) => void;
+  // Drops "connected" when it isn't fresh - the safety net for a missed iOS
+  // disconnect. Called on every app foreground (see useCarDetection).
+  clearStaleConnection: () => void;
 
   // Sets or clears the default checklist (Pro feature). Pass null to clear.
   setDefaultChecklist: (id: string | null) => void;
@@ -206,6 +212,12 @@ interface AppStore {
   // and clears any Pro-only state.
   downgradeFromPro: () => void;
 }
+
+// How long after a connect we keep trusting the "connected" flag without a new
+// connect event. A safety net for missed iOS disconnects (Apple can't guarantee
+// the "CarPlay disconnects" Shortcut fires), so the Home banner self-corrects
+// instead of showing "Car connected" forever. Tune freely.
+const CONNECTION_FRESH_MS = 5 * 60 * 1000;
 
 // ── Store factory ─────────────────────────────────────────────────────────────
 // `persist(...)` wraps the store with Zustand's persist middleware, which
@@ -238,6 +250,7 @@ export const useAppStore = create<AppStore>()(
       // seeded `true` for demos, which both mis-showed "connected" on the Home
       // banner and suppressed ads on first launch via the adsEnabled() gate.)
       connectedToVehicle: false,
+      connectedAt: null,
       activeRuns: [],
       lastTripChecklistId: null,
 
@@ -321,7 +334,22 @@ export const useAppStore = create<AppStore>()(
       updateSettings: (data) =>
         set((state) => ({ settings: { ...state.settings, ...data } })),
 
-      setConnectedToVehicle: (connected) => set({ connectedToVehicle: connected }),
+      setConnectedToVehicle: (connected) =>
+        set({ connectedToVehicle: connected, connectedAt: connected ? Date.now() : null }),
+
+      clearStaleConnection: () =>
+        set((state) => {
+          // A disconnect event clears "connected" immediately when it fires; this
+          // bounds staleness when it doesn't. Also clears a value with no
+          // timestamp (e.g. one rehydrated from an older build's persistence).
+          if (
+            state.connectedToVehicle &&
+            (state.connectedAt == null || Date.now() - state.connectedAt > CONNECTION_FRESH_MS)
+          ) {
+            return { connectedToVehicle: false, connectedAt: null };
+          }
+          return {};
+        }),
 
       setDefaultChecklist: (id) =>
         set((state) => ({
@@ -375,12 +403,12 @@ export const useAppStore = create<AppStore>()(
       name: 'checkdrive-storage', // AsyncStorage key
       storage: createJSONStorage(() => AsyncStorage),
 
-      // Bumped to 1 for the autoDetect → defaultChecklistId consolidation. The
-      // per-checklist `autoDetect` flag was removed; "default checklist" is now
-      // the single concept. For older installs, adopt the first auto-on list as
-      // the default (only if the user hadn't already set one), then drop the
-      // now-defunct flag from every checklist.
-      version: 1,
+      // v1: autoDetect → defaultChecklistId consolidation (the per-checklist
+      // `autoDetect` flag was removed; "default checklist" is now the single
+      // concept; older installs adopt the first auto-on list as the default).
+      // v2: connectedToVehicle is no longer persisted - drop any stuck value so
+      // the Home banner doesn't show a stale "Car connected" after an update.
+      version: 2,
       migrate: (persisted: any) => {
         if (persisted && Array.isArray(persisted.checklists)) {
           const firstAuto = persisted.checklists.find((cl: any) => cl.autoDetect);
@@ -392,6 +420,7 @@ export const useAppStore = create<AppStore>()(
             return rest;
           });
         }
+        if (persisted) delete persisted.connectedToVehicle;
         return persisted;
       },
 
@@ -404,7 +433,9 @@ export const useAppStore = create<AppStore>()(
         checklists: state.checklists,
         tripLogs: state.tripLogs,
         settings: state.settings,
-        connectedToVehicle: state.connectedToVehicle,
+        // connectedToVehicle is intentionally NOT persisted - it's real-time
+        // state we can't trust across launches (a missed disconnect would make it
+        // stick). Fresh launches start "not connected".
         activeRuns: state.activeRuns,
         lastTripChecklistId: state.lastTripChecklistId,
       }),

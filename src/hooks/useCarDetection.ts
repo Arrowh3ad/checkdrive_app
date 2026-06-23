@@ -36,7 +36,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useCallback } from 'react';
-import { Alert } from 'react-native';
+import { Alert, AppState } from 'react-native';
 import * as Linking from 'expo-linking';
 import { useAppStore } from '../store/useAppStore';
 import {
@@ -254,6 +254,21 @@ export function useCarDetection() {
   useEffect(() => {
     void CarBluetooth.configure({ backSeatEnabled, backSeatMessage });
   }, [backSeatEnabled, backSeatMessage]);
+
+  // ── Stale-connection safety net ───────────────────────────────────────────
+  // iOS can't guarantee a disconnect event (it relies on the user's "CarPlay
+  // disconnects" Shortcut). So whenever the app foregrounds, expire a
+  // "connected" state that isn't fresh - otherwise the Home banner keeps showing
+  // "Car connected" long after the user parked. Runs once on mount too, to clear
+  // any value rehydrated from an older build's persistence.
+  useEffect(() => {
+    const clear = () => useAppStore.getState().clearStaleConnection();
+    clear();
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') clear();
+    });
+    return () => sub.remove();
+  }, []);
 
   // Exposed so HomeScreen's Simulate button can trigger the same flow
   // without actually connecting a car - useful during development and testing.
