@@ -19,10 +19,12 @@
 //        • Multi-stop: a stop editor with per-stop name + item inputs
 //
 // CUSTOM PHOTO
-// When the user picks a photo from their library, we copy it into
-// `FileSystem.documentDirectory + 'checklist-icons/'`. This gives us a stable
-// URI that remains valid across app restarts (the picker's temporary asset URI
-// does not persist). The stable URI is stored as `iconUri` in the checklist.
+// When the user picks a photo, we copy it into the document directory's
+// `checklist-icons/` folder and store the RELATIVE path as `iconUri`. We do NOT
+// store the absolute URI: the documentDirectory path embeds the iOS app-
+// container UUID, which changes on every app update, so an absolute URI saved by
+// one build is a dead path in the next (blank icon). `resolveIconUri()` rebuilds
+// the absolute path against the current documentDirectory at render time.
 //
 // ITEM STATE
 // Items are stored as plain `string[]` during editing (just labels, no IDs).
@@ -57,6 +59,7 @@ import { useAppStore } from '../store/useAppStore';
 import { theme } from '../theme';
 import { RootStackParamList, StopStatus } from '../types';
 import { generateId } from '../utils/ids';
+import { ICON_DIR, resolveIconUri } from '../utils/icons';
 
 type Route = RouteProp<RootStackParamList, 'NewChecklist'>;
 
@@ -176,13 +179,16 @@ export function NewChecklistScreen() {
     if (result.canceled || !result.assets[0]) return;
 
     // The picker returns a temporary URI that won't persist across app restarts.
-    // Copy to the app's document directory for a stable, persistent URI.
-    const dir = FileSystem.documentDirectory + 'checklist-icons/';
+    // Copy it into the document directory, but store only the RELATIVE path - the
+    // absolute documentDirectory embeds the iOS container UUID, which changes on
+    // every app update, so an absolute URI goes dead (blank icon) after an
+    // update. resolveIconUri() rebuilds the absolute path at render time.
+    const fileName = `icon-${Date.now()}.jpg`;
+    const dir = FileSystem.documentDirectory + ICON_DIR;
     await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
-    const destUri = dir + `icon-${Date.now()}.jpg`;
-    await FileSystem.copyAsync({ from: result.assets[0].uri, to: destUri });
+    await FileSystem.copyAsync({ from: result.assets[0].uri, to: dir + fileName });
 
-    setIconUri(destUri);
+    setIconUri(ICON_DIR + fileName);
   }
 
   function clearCustomPhoto() {
@@ -365,7 +371,7 @@ export function NewChecklistScreen() {
             <View style={ap.previewRow}>
               <View style={[ap.preview, { backgroundColor: iconUri ? '#fff' : selectedBg }]}>
                 {iconUri ? (
-                  <Image source={{ uri: iconUri }} style={ap.previewImage} resizeMode="cover" />
+                  <Image source={{ uri: resolveIconUri(iconUri) }} style={ap.previewImage} resizeMode="cover" />
                 ) : (
                   <Ionicons name={selectedIcon as any} size={28} color={selectedIconColor} />
                 )}

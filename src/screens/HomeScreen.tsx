@@ -38,6 +38,7 @@ import {
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { resolveIconUri } from '../utils/icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -298,7 +299,7 @@ export function HomeScreen() {
                 <View style={[s.clIcon, { backgroundColor: cl.iconUri ? '#fff' : cl.iconBg }]}>
                   {cl.iconUri ? (
                     <Image
-                      source={{ uri: cl.iconUri }}
+                      source={{ uri: resolveIconUri(cl.iconUri) }}
                       style={s.clIconImage}
                       resizeMode="cover"
                     />
