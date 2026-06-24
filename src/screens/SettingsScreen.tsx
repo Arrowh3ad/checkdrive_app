@@ -183,7 +183,7 @@ export function SettingsScreen() {
           </View>
         )}
 
-        <Text style={s.version}>CheckDrive v1.0.0</Text>
+        <Text style={s.version}>CheckDrive v1.0.1</Text>
       </ScrollView>
     </SafeAreaView>
   );
