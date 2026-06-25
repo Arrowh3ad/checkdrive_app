@@ -18,7 +18,7 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "CheckDrive needs access to your photos so you can set a custom photo as a checklist icon."
       },
-      "buildNumber": "6"
+      "buildNumber": "7"
     },
     "android": {
       "adaptiveIcon": {
