@@ -672,13 +672,16 @@ function StepList({ steps }: { steps: Step[] }) {
 // so this component only ever mounts on the Android tab.
 function NativeDetectSection() {
   const [supported, setSupported] = useState<boolean | null>(null);
-  const [car, setCar] = useState<CarDevice | null>(null);
+  // Multiple cars can be watched at once, so this is a list (not a single car).
+  const [cars, setCars] = useState<CarDevice[]>([]);
   const [busy, setBusy] = useState(false);
-  // Paired-device picker: the list of bonded devices + whether the sheet is open.
+  // Paired-device picker: the bonded devices, whether the sheet is open, and
+  // which rows are checked (multi-select — you can add several cars at once).
   const [bonded, setBonded] = useState<CarDevice[]>([]);
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  // Probe support + load any previously-linked car on mount. `alive` guards
+  // Probe support + load any previously-linked cars on mount. `alive` guards
   // against setting state after unmount (the async calls can outlive the screen).
   useEffect(() => {
     let alive = true;
@@ -687,8 +690,8 @@ function NativeDetectSection() {
       if (!alive) return;
       setSupported(ok);
       if (ok) {
-        const t = await CarBluetooth.getTarget();
-        if (alive) setCar(t);
+        const t = await CarBluetooth.getTargets();
+        if (alive) setCars(t);
       }
     })();
     return () => {
@@ -726,9 +729,9 @@ function NativeDetectSection() {
         return;
       }
       const picked = await CarBluetooth.associateCar();
-      setCar(picked);
+      setCars(await CarBluetooth.getTargets());
       Alert.alert(
-        'Car linked',
+        'Car added',
         `CheckDrive will now watch "${picked.name ?? picked.address}". Connect to it to test - ` +
           'you should get a notification (or the app opens, per your settings).'
       );
@@ -771,35 +774,44 @@ function NativeDetectSection() {
         return;
       }
       setBonded(devices);
+      setSelected(new Set());
       setPickerVisible(true);
     } finally {
       setBusy(false);
     }
   }
 
-  // Save the chosen paired device as the watched car. Detection runs off this
-  // saved address via the manifest ACL receiver - no CDM association needed.
-  async function selectPaired(device: CarDevice) {
-    setPickerVisible(false);
-    await CarBluetooth.setCar(device.address, device.name);
-    setCar(device);
-    Alert.alert(
-      'Car linked',
-      `CheckDrive will now watch "${device.name ?? device.address}". Connect to it to test - ` +
-        'you should get a notification (or the app opens, per your settings).'
-    );
+  // Toggle a device's checkbox in the multi-select picker.
+  function toggleSelected(address: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(address)) next.delete(address);
+      else next.add(address);
+      return next;
+    });
   }
 
-  function handleForget() {
-    if (!car) return;
-    Alert.alert('Forget this car?', `Stop watching "${car.name ?? car.address}"?`, [
+  // Save every checked paired device as a watched car. Detection runs off these
+  // saved addresses via the manifest ACL receiver - no CDM association needed.
+  async function applySelection() {
+    setPickerVisible(false);
+    for (const addr of selected) {
+      const d = bonded.find((b) => b.address === addr);
+      if (d) await CarBluetooth.addCar(d.address, d.name);
+    }
+    setSelected(new Set());
+    setCars(await CarBluetooth.getTargets());
+  }
+
+  function handleForget(target: CarDevice) {
+    Alert.alert('Forget this car?', `Stop watching "${target.name ?? target.address}"?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Forget',
         style: 'destructive',
         onPress: async () => {
-          await CarBluetooth.forgetCar(car.address);
-          setCar(null);
+          await CarBluetooth.forgetCar(target.address);
+          setCars(await CarBluetooth.getTargets());
         },
       },
     ]);
@@ -820,6 +832,9 @@ function NativeDetectSection() {
     );
   }
 
+  // Cars already watched are managed in the list, not the add-sheet.
+  const availableToAdd = bonded.filter((d) => !cars.some((c) => c.address === d.address));
+
   return (
     <View style={s.nativeCard}>
       <View style={s.nativeBadgeRow}>
@@ -828,39 +843,42 @@ function NativeDetectSection() {
       </View>
       <Text style={s.infoTitle}>Let CheckDrive watch your car’s Bluetooth</Text>
       <Text style={s.infoText}>
-        Pick your car once from your paired Bluetooth devices and CheckDrive detects it directly -
-        no AutomateIt or Shortcuts needed. On connect you’ll get a “tap to run your checklist”
-        notification (Pro can auto-open the default list instead, via Settings).
+        Pick your car - or several - once from your paired Bluetooth devices and CheckDrive detects
+        them directly, no AutomateIt or Shortcuts needed. On connect you’ll get a “tap to run your
+        checklist” notification (Pro can auto-open the default list instead, via Settings).
       </Text>
 
-      {car ? (
+      {cars.length > 0 ? (
         <>
-          <View style={s.carRow}>
-            <Ionicons name="bluetooth" size={16} color={theme.colors.primaryDeep} />
-            <View style={{ flex: 1 }}>
-              <Text style={s.carName}>{car.name ?? 'Paired device'}</Text>
-              <Text style={s.carAddr}>{car.address}</Text>
+          {cars.map((c) => (
+            <View key={c.address} style={s.carRow}>
+              <Ionicons name="bluetooth" size={16} color={theme.colors.primaryDeep} />
+              <View style={{ flex: 1 }}>
+                <Text style={s.carName}>{c.name ?? 'Paired device'}</Text>
+                <Text style={s.carAddr}>{c.address}</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => handleForget(c)}
+                disabled={busy}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close-circle" size={20} color={theme.colors.textTertiary} />
+              </TouchableOpacity>
             </View>
-            <View style={s.carLinkedPill}>
-              <Text style={s.carLinkedPillText}>Linked</Text>
-            </View>
-          </View>
+          ))}
           <View style={s.nativeBtnRow}>
             <TouchableOpacity
               style={[s.nativeBtn, s.nativeBtnGhost]}
               onPress={handleChoosePaired}
               disabled={busy}
             >
-              <Text style={s.nativeBtnGhostText}>Change car</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[s.nativeBtn, s.nativeBtnGhost]}
-              onPress={handleForget}
-              disabled={busy}
-            >
-              <Text style={[s.nativeBtnGhostText, { color: theme.colors.danger }]}>Forget</Text>
+              <Text style={s.nativeBtnGhostText}>Add another car</Text>
             </TouchableOpacity>
           </View>
+          {/* Fallback for a car that isn't paired yet: the CDM discovery scan. */}
+          <TouchableOpacity onPress={handlePick} disabled={busy} style={s.scanLink}>
+            <Text style={s.scanLinkText}>Car not listed? Scan for a device</Text>
+          </TouchableOpacity>
         </>
       ) : (
         <>
@@ -881,7 +899,8 @@ function NativeDetectSection() {
         </>
       )}
 
-      {/* Paired-device picker sheet. Tapping a row saves it as the watched car. */}
+      {/* Paired-device picker sheet. Check every car to watch, then Add. Cars
+          already watched are managed in the list above, so they're hidden here. */}
       <Modal
         visible={pickerVisible}
         transparent
@@ -890,25 +909,53 @@ function NativeDetectSection() {
       >
         <Pressable style={s.pickerBackdrop} onPress={() => setPickerVisible(false)}>
           <Pressable style={s.pickerSheet} onPress={() => {}}>
-            <Text style={s.pickerTitle}>Choose your car</Text>
-            <Text style={s.pickerSub}>Pick it from your paired Bluetooth devices.</Text>
+            <Text style={s.pickerTitle}>Add your cars</Text>
+            <Text style={s.pickerSub}>Check every Bluetooth device CheckDrive should watch.</Text>
             <ScrollView style={{ maxHeight: 320 }}>
-              {bonded.map((d, idx) => (
-                <TouchableOpacity
-                  key={d.address}
-                  style={[s.pickerRow, idx < bonded.length - 1 && s.pickerRowBorder]}
-                  onPress={() => selectPaired(d)}
-                >
-                  <Ionicons name="bluetooth" size={16} color={theme.colors.primaryDeep} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.pickerName}>{d.name ?? 'Unnamed device'}</Text>
-                    <Text style={s.pickerAddr}>{d.address}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
+              {availableToAdd.length === 0 ? (
+                <Text style={[s.infoText, { paddingVertical: 12 }]}>
+                  All your paired devices are already added.
+                </Text>
+              ) : (
+                availableToAdd.map((d, idx) => {
+                  const on = selected.has(d.address);
+                  return (
+                    <TouchableOpacity
+                      key={d.address}
+                      style={[s.pickerRow, idx < availableToAdd.length - 1 && s.pickerRowBorder]}
+                      onPress={() => toggleSelected(d.address)}
+                    >
+                      <Ionicons
+                        name={on ? 'checkbox' : 'square-outline'}
+                        size={20}
+                        color={on ? theme.colors.primary : theme.colors.textTertiary}
+                      />
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.pickerName}>{d.name ?? 'Unnamed device'}</Text>
+                        <Text style={s.pickerAddr}>{d.address}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
             </ScrollView>
+            {availableToAdd.length > 0 && (
+              <TouchableOpacity
+                style={[s.nativeBtn, selected.size === 0 && { opacity: 0.5 }]}
+                onPress={applySelection}
+                disabled={selected.size === 0}
+              >
+                <Text style={s.nativeBtnText}>
+                  {selected.size > 0
+                    ? `Add ${selected.size} ${selected.size === 1 ? 'car' : 'cars'}`
+                    : 'Select cars to add'}
+                </Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity style={s.pickerCancel} onPress={() => setPickerVisible(false)}>
-              <Text style={s.pickerCancelText}>Cancel</Text>
+              <Text style={s.pickerCancelText}>
+                {availableToAdd.length === 0 ? 'Close' : 'Cancel'}
+              </Text>
             </TouchableOpacity>
           </Pressable>
         </Pressable>

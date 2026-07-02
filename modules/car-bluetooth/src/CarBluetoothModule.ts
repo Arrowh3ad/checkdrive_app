@@ -10,10 +10,11 @@ declare class CarBluetoothModule extends NativeModule<CarBluetoothEvents> {
   associate(): Promise<CarDevice>;
   // Already-paired devices — the reliable car picker (see index.ts).
   getBondedDevices(): Promise<CarDevice[]>;
-  // Save a chosen bonded device as the watched car (no CDM picker).
-  setTarget(address: string, name: string | null): Promise<void>;
+  // Add a chosen bonded device to the watched cars (no CDM picker).
+  addTarget(address: string, name: string | null): Promise<void>;
   getAssociations(): Promise<CarDevice[]>;
-  getTarget(): Promise<CarDevice | null>;
+  // Every car currently being watched.
+  getTargets(): Promise<CarDevice[]>;
   forgetCar(address: string): Promise<void>;
   // Syncs the back-seat reminder setting to the native side so the receiver
   // posts the right disconnect notification even when JS isn't running.

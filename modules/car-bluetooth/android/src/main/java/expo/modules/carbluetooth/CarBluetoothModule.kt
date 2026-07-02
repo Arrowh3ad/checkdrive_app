@@ -58,13 +58,18 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import java.util.concurrent.Executor
 
-// SharedPreferences-backed store for the chosen car. The ACL receiver runs in a
+// SharedPreferences-backed store for the chosen cars. The ACL receiver runs in a
 // freshly-started process (no JS, no module instance) so it must read the target
-// address from disk, not from memory.
+// addresses from disk, not from memory.
+//
+// MULTIPLE CARS: the user can watch several vehicles (e.g. their car + a
+// partner's). We persist a StringSet of MAC addresses (uppercased) plus a
+// per-address display name. A connect/disconnect fires if the device matches
+// ANY watched address.
 internal object CarPrefs {
   private const val PREFS = "checkdrive_car_bt"
-  private const val KEY_ADDR = "target_address"
-  private const val KEY_NAME = "target_name"
+  private const val KEY_ADDRS = "target_addresses"   // StringSet of MACs (uppercased)
+  private const val KEY_NAME_PREFIX = "target_name_" // per-address display name
 
   // Back-seat reminder config, synced from JS via configure() so the receiver
   // can post the right disconnect notification even when the JS runtime is dead.
@@ -73,18 +78,41 @@ internal object CarPrefs {
 
   private fun prefs(c: Context) = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-  fun setTarget(c: Context, address: String, name: String?) {
-    prefs(c).edit().putString(KEY_ADDR, address).putString(KEY_NAME, name).apply()
+  // Copy out of the pref-owned set: getStringSet's instance must not be mutated.
+  private fun addressSet(c: Context): MutableSet<String> =
+    HashSet(prefs(c).getStringSet(KEY_ADDRS, emptySet()) ?: emptySet())
+
+  // Add a watched car (idempotent). Addresses are normalized to uppercase so
+  // matching against ACL broadcasts is case-insensitive.
+  fun addTarget(c: Context, address: String, name: String?) {
+    val a = address.uppercase()
+    prefs(c).edit()
+      .putStringSet(KEY_ADDRS, addressSet(c).apply { add(a) })
+      .putString(KEY_NAME_PREFIX + a, name)
+      .apply()
   }
 
-  fun getAddress(c: Context): String? = prefs(c).getString(KEY_ADDR, null)
-  fun getName(c: Context): String? = prefs(c).getString(KEY_NAME, null)
-
-  // Clears only the watched-car target — leaves feature config intact so
-  // forgetting a car doesn't wipe the user's settings.
-  fun clearTarget(c: Context) {
-    prefs(c).edit().remove(KEY_ADDR).remove(KEY_NAME).apply()
+  // Stop watching one car — leaves the others and the feature config intact.
+  fun removeTarget(c: Context, address: String) {
+    val a = address.uppercase()
+    prefs(c).edit()
+      .putStringSet(KEY_ADDRS, addressSet(c).apply { remove(a) })
+      .remove(KEY_NAME_PREFIX + a)
+      .apply()
   }
+
+  // address -> name (name may be null) for every watched car.
+  fun getTargets(c: Context): List<Pair<String, String?>> {
+    val p = prefs(c)
+    return addressSet(c).map { it to p.getString(KEY_NAME_PREFIX + it, null) }
+  }
+
+  // Does this device address match any watched car? (addresses stored uppercased)
+  fun isTarget(c: Context, address: String): Boolean =
+    addressSet(c).contains(address.uppercase())
+
+  // ponytail: no migration from the old single-target keys — Android has no
+  // released users yet, so a dev build just re-picks its car once.
 
   fun setConfig(c: Context, backSeatEnabled: Boolean, backSeatMessage: String?) {
     prefs(c).edit()
@@ -176,11 +204,11 @@ class CarBluetoothModule : Module() {
       out
     }
 
-    // Save a chosen bonded device as the watched car, WITHOUT going through the
-    // CDM picker. The manifest ACL receiver fires off this saved address whether
+    // Add a chosen bonded device to the watched cars, WITHOUT going through the
+    // CDM picker. The manifest ACL receiver fires off any saved address whether
     // or not a CDM association exists, so this is sufficient for detection.
-    AsyncFunction("setTarget") { address: String, name: String? ->
-      CarPrefs.setTarget(context, address.uppercase(), name)
+    AsyncFunction("addTarget") { address: String, name: String? ->
+      CarPrefs.addTarget(context, address.uppercase(), name)
     }
 
     // List devices already associated with this app (so the UI can show "your
@@ -205,13 +233,14 @@ class CarBluetoothModule : Module() {
       out
     }
 
-    // The single car we actively watch (the most recent associate()).
-    AsyncFunction("getTarget") {
-      val addr = CarPrefs.getAddress(context) ?: return@AsyncFunction null
-      mapOf("address" to addr, "name" to CarPrefs.getName(context))
+    // Every car we actively watch.
+    AsyncFunction("getTargets") {
+      CarPrefs.getTargets(context).map { (addr, name) ->
+        mapOf("address" to addr, "name" to name)
+      }
     }
 
-    // Remove an association and stop watching it.
+    // Remove one association and stop watching that car (others stay watched).
     AsyncFunction("forgetCar") { address: String ->
       try {
         if (Build.VERSION.SDK_INT >= 33) {
@@ -224,7 +253,7 @@ class CarBluetoothModule : Module() {
           @Suppress("DEPRECATION") companionManager.disassociate(address)
         }
       } catch (_: Exception) { /* ignore — we still clear our saved target */ }
-      CarPrefs.clearTarget(context)
+      CarPrefs.removeTarget(context, address)
     }
 
     // Sync the back-seat reminder setting from JS → SharedPreferences so the
@@ -334,7 +363,7 @@ class CarBluetoothModule : Module() {
       return
     }
 
-    CarPrefs.setTarget(context, address, name)
+    CarPrefs.addTarget(context, address, name)
     promise.resolve(mapOf("address" to address, "name" to name))
   }
 
@@ -364,13 +393,15 @@ class CarBluetoothModule : Module() {
     // sources. Filters to the saved car, debounces, then either emits a JS
     // event (app alive) or posts a deep-link notification (app dead).
     fun dispatch(context: Context, connected: Boolean, address: String?) {
-      val target = CarPrefs.getAddress(context) ?: return
-      // ACL broadcasts always include the device; require a match so other
-      // Bluetooth gadgets (earbuds, watch) don't trigger CheckDrive.
-      if (address == null || !address.equals(target, ignoreCase = true)) return
+      // ACL broadcasts always include the device; require a match against one of
+      // the watched cars so other Bluetooth gadgets (earbuds, watch) don't
+      // trigger CheckDrive.
+      if (address == null || !CarPrefs.isTarget(context, address)) return
 
       val now = System.currentTimeMillis()
-      val key = (if (connected) "c" else "d") + target
+      // Key the debounce on the specific address so two cars connecting close
+      // together don't cancel each other out — only true bursts are dropped.
+      val key = (if (connected) "c" else "d") + address.uppercase()
       synchronized(this) {
         if (key == lastKey && now - lastTime < DEBOUNCE_MS) return
         lastKey = key

@@ -56,13 +56,14 @@ export async function getBondedDevices(): Promise<CarDevice[]> {
   }
 }
 
-// Save a chosen bonded device as the watched car (no system picker). Detection
-// via the manifest ACL receiver works off this saved address regardless of any
-// CDM association.
-export async function setCar(address: string, name?: string | null): Promise<void> {
+// Add a chosen bonded device to the watched cars (no system picker). Multiple
+// cars can be watched at once; a connect/disconnect fires for any of them.
+// Detection via the manifest ACL receiver works off the saved addresses
+// regardless of any CDM association.
+export async function addCar(address: string, name?: string | null): Promise<void> {
   if (!available) return;
   try {
-    await Native!.setTarget(address, name ?? null);
+    await Native!.addTarget(address, name ?? null);
   } catch {
     /* best-effort */
   }
@@ -78,13 +79,14 @@ export async function getAssociations(): Promise<CarDevice[]> {
   }
 }
 
-// The single car currently being watched (most recent association), or null.
-export async function getTarget(): Promise<CarDevice | null> {
-  if (!available) return null;
+// Every car currently being watched. Empty when none are set or native
+// detection is unavailable.
+export async function getTargets(): Promise<CarDevice[]> {
+  if (!available) return [];
   try {
-    return await Native!.getTarget();
+    return await Native!.getTargets();
   } catch {
-    return null;
+    return [];
   }
 }
 
