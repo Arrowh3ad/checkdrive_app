@@ -60,6 +60,7 @@ import { theme } from '../theme';
 import { RootStackParamList, StopStatus } from '../types';
 import { generateId } from '../utils/ids';
 import { ICON_DIR, resolveIconUri } from '../utils/icons';
+import { TRIP_TEMPLATES, TripTemplate } from '../data/templates';
 
 type Route = RouteProp<RootStackParamList, 'NewChecklist'>;
 
@@ -153,6 +154,46 @@ export function NewChecklistScreen() {
         }))
       : [{ id: generateId(), name: '', items: [], itemInput: '' }]
   );
+
+  // Which built-in template seeded the form (create mode only; highlight state).
+  const [templateId, setTemplateId] = useState<string | null>(null);
+
+  // ── Template helpers ────────────────────────────────────────────────────────
+
+  // Prefill the whole form from a template. Templates are just form state - the
+  // user edits freely and the normal save path runs, so there's no second
+  // "create from template" code path to maintain.
+  function applyTemplate(tpl: TripTemplate) {
+    const apply = () => {
+      setTemplateId(tpl.id);
+      setName(tpl.name);
+      setSelectedIcon(tpl.iconName);
+      setSelectedBg(tpl.iconBg);
+      setSelectedIconColor(tpl.iconColor);
+      setIconUri(undefined);
+      setIsMultiStop(false);
+      setStartItems(tpl.startItems);
+      setEndItems(tpl.endItems);
+      setEndOfTrip(tpl.endItems.length > 0);
+      setBackSeat(!!tpl.backSeatReminder);
+      setBackSeatMsg(tpl.backSeatMessage ?? '');
+    };
+    // Confirm only when overwriting things the user typed by hand - switching
+    // between templates replaces silently (the content came from us anyway).
+    const dirty = name.trim().length > 0 || startItems.length > 0 || endItems.length > 0;
+    if (dirty && templateId === null) {
+      Alert.alert(
+        'Use this template?',
+        `"${tpl.name}" will replace the name and items you've entered.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Replace', onPress: apply },
+        ]
+      );
+    } else {
+      apply();
+    }
+  }
 
   // ── Appearance helpers ──────────────────────────────────────────────────────
 
@@ -349,6 +390,37 @@ export function NewChecklistScreen() {
             {/* Title reflects the current mode */}
             <Text style={s.title}>{isEditing ? 'Edit checklist' : 'New checklist'}</Text>
           </View>
+
+          {/* ── Templates (create mode only) ──────────────────────────────── */}
+          {/* One tap seeds the whole form with a realistic trip list - the cure
+              for the blank-editor cold start. Hidden in edit mode: replacing an
+              existing checklist's content wholesale is never what edit means. */}
+          {!isEditing && (
+            <View style={s.card}>
+              <Text style={s.cardSectionLabel}>Start from a template</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={tp.row}>
+                  {TRIP_TEMPLATES.map((tpl) => {
+                    const active = templateId === tpl.id;
+                    return (
+                      <TouchableOpacity
+                        key={tpl.id}
+                        style={[tp.chip, active && tp.chipActive]}
+                        onPress={() => applyTemplate(tpl)}
+                      >
+                        <View style={[tp.chipIcon, { backgroundColor: tpl.iconBg }]}>
+                          <Ionicons name={tpl.iconName as any} size={20} color={tpl.iconColor} />
+                        </View>
+                        <Text style={tp.chipName} numberOfLines={1}>{tpl.name}</Text>
+                        <Text style={tp.chipCount}>{tpl.startItems.length + tpl.endItems.length} items</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+              <Text style={tp.hint}>Tap one to prefill - everything stays editable.</Text>
+            </View>
+          )}
 
           {/* ── Name input ────────────────────────────────────────────────── */}
           <View style={s.card}>
@@ -785,6 +857,37 @@ const s = StyleSheet.create({
 
 
 
+
+// Template picker styles (horizontal chip row on the create screen)
+const tp = StyleSheet.create({
+  row: { flexDirection: 'row', gap: 8 },
+  chip: {
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    width: 92,
+    borderRadius: theme.radius.md,
+    borderWidth: 0.5,
+    borderColor: theme.colors.borderTertiary,
+    backgroundColor: theme.colors.bgSecondary,
+  },
+  chipActive: {
+    borderWidth: 1.5,
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryLight,
+  },
+  chipIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: theme.radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chipName: { fontSize: 11, fontWeight: '500', color: theme.colors.textPrimary },
+  chipCount: { fontSize: 10, color: theme.colors.textTertiary },
+  hint: { fontSize: 12, color: theme.colors.textTertiary },
+});
 
 // Appearance card styles
 const ap = StyleSheet.create({

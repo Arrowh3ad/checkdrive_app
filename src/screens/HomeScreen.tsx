@@ -49,6 +49,7 @@ import { FREE_CHECKLIST_LIMIT } from '../constants';
 import { theme } from '../theme';
 import { Checklist, RootStackParamList, ActiveRun } from '../types';
 import { formatTimeAgo } from '../utils/time';
+import { computeStreak } from '../utils/streaks';
 import { Onboarding } from './Onboarding';
 
 // Narrowing the navigation type to the 'Home' screen makes `navigation.navigate`
@@ -89,6 +90,8 @@ export function HomeScreen() {
     tripLogs.length > 0
       ? Math.round((tripLogs.filter((l) => l.isComplete).length / tripLogs.length) * 100)
       : 0;
+  // Consecutive-day streak, derived from the logs (see utils/streaks.ts).
+  const streak = computeStreak(tripLogs.map((l) => l.timestamp));
 
   // In-progress runs to surface in the "continue where you left off" banner.
   // Filter out any run whose checklist no longer exists (defensive - deletes
@@ -364,6 +367,20 @@ export function HomeScreen() {
             <Text style={[s.statVal, { color: theme.colors.primary }]}>{completionRate}%</Text>
             <Text style={s.statLabel}>Completion rate</Text>
           </View>
+          {/* Streak card - the "reason to come back" a plain checklist lacks.
+              Flame lights up while a streak is alive; label shows the personal
+              best once there is one worth beating. */}
+          <View style={s.statCard}>
+            <View style={s.statValRow}>
+              {streak.current > 0 && (
+                <Ionicons name="flame" size={18} color={theme.colors.warning} />
+              )}
+              <Text style={s.statVal}>{streak.current}</Text>
+            </View>
+            <Text style={s.statLabel}>
+              {streak.best > streak.current ? `Streak · best ${streak.best}` : 'Day streak'}
+            </Text>
+          </View>
         </View>
 
       </ScrollView>
@@ -567,6 +584,7 @@ const s = StyleSheet.create({
     borderColor: theme.colors.borderTertiary,
   },
   statVal: { fontSize: 22, fontWeight: '500', color: theme.colors.textPrimary },
+  statValRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   statLabel: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 2 },
 
   // ── ⋮ menu (bottom sheet) ───────────────────────────────────────────────
