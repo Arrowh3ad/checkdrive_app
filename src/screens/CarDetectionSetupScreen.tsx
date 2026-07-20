@@ -150,10 +150,11 @@ import type { CarDevice } from '../../modules/car-bluetooth';
 const IOS_CONNECT_STEPS: Step[] = [
   {
     n: '1',
-    title: 'Tap "Add the Enter car shortcut" above',
+    title: 'Add the ready-made "Enter car" shortcut',
     detail:
-      'That adds the ready-made shortcut in one tap - no building it by hand. iOS may show an ' +
-      '"untrusted shortcut" review; that\'s normal, scroll down and tap "Add Shortcut".',
+      'Tap the button below - it adds the shortcut in one tap, no building it by hand. iOS may ' +
+      'show an "untrusted shortcut" review; that\'s normal, scroll down and tap "Add Shortcut".',
+    action: { label: 'Add the "Enter car" shortcut', url: SHORTCUT_CONNECT_URL },
   },
   {
     n: '2',
@@ -192,8 +193,10 @@ const IOS_CONNECT_STEPS: Step[] = [
 const IOS_DISCONNECT_STEPS: Step[] = [
   {
     n: '1',
-    title: 'Tap "Add the Exit car shortcut" above',
-    detail: 'Adds the ready-made disconnect shortcut. Same "Add Shortcut" review as before.',
+    title: 'Add the ready-made "Exit car" shortcut',
+    detail:
+      'Tap the button below to add the disconnect shortcut. Same "Add Shortcut" review as before.',
+    action: { label: 'Add the "Exit car" shortcut', url: SHORTCUT_DISCONNECT_URL },
   },
   {
     n: '2',
@@ -616,7 +619,15 @@ function Collapsible({
 // Numbered step list - extracted because we render six of these on the Android
 // tab (three tools × connect/disconnect) plus two on iOS. Inlining the JSX in
 // every spot would triple the size of the render function for no benefit.
-type Step = { n: string; title: string; detail: string; image?: ImageSourcePropType };
+type Step = {
+  n: string;
+  title: string;
+  detail: string;
+  image?: ImageSourcePropType;
+  // Optional tappable button rendered under the detail (e.g. "Add the shortcut")
+  // so the step is actionable in place - in both the list and slideshow views.
+  action?: { label: string; url: string };
+};
 
 // Optional screenshot under a step. Sized in explicit POINTS, not "100%": a
 // percentage width didn't reliably constrain these large (~960px) PNGs - the
@@ -654,11 +665,149 @@ function StepList({ steps }: { steps: Step[] }) {
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={s.stepTitle}>{step.title}</Text>
             <Text style={s.stepDetail}>{step.detail}</Text>
+            {step.action && (
+              <TouchableOpacity
+                style={s.stepActionBtn}
+                onPress={() => Linking.openURL(step.action!.url)}
+              >
+                <Ionicons name="add-circle-outline" size={15} color="#fff" />
+                <Text style={s.stepActionBtnText}>  {step.action.label}</Text>
+              </TouchableOpacity>
+            )}
             {step.image && <StepImage source={step.image} />}
           </View>
         </View>
       ))}
     </View>
+  );
+}
+
+// ── Step slideshow ────────────────────────────────────────────────────────────
+// Full-screen "walk me through it" mode: one step per swipeable slide, big
+// screenshot, giant Next button. Same paging-ScrollView pattern as Onboarding -
+// no carousel dependency. This is the dumbed-down path for people who bounce
+// off the written list.
+function StepSlideshow({
+  title,
+  steps,
+  visible,
+  onClose,
+}: {
+  title: string;
+  steps: Step[];
+  visible: boolean;
+  onClose: () => void;
+}) {
+  const { width, height } = useWindowDimensions();
+  const scrollRef = React.useRef<ScrollView>(null);
+  const [page, setPage] = useState(0);
+  const last = page === steps.length - 1;
+  // Cap the screenshot so title + detail + buttons always fit under it.
+  const imgW = width - 48;
+  const imgMaxH = Math.round(height * 0.42);
+
+  // Reset to slide 1 every time the slideshow opens.
+  useEffect(() => {
+    if (visible) {
+      setPage(0);
+      // Modal content mounts after `visible` flips, so defer the scroll a tick.
+      setTimeout(() => scrollRef.current?.scrollTo({ x: 0, animated: false }), 0);
+    }
+  }, [visible]);
+
+  function go(delta: number) {
+    const next = page + delta;
+    if (next < 0) return;
+    if (next >= steps.length) {
+      onClose();
+      return;
+    }
+    scrollRef.current?.scrollTo({ x: next * width, animated: true });
+    setPage(next);
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <SafeAreaView style={s.slideshowSafe}>
+        {/* Header: title + step counter + close */}
+        <View style={s.slideshowTop}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.slideshowTitle}>{title}</Text>
+            <Text style={s.slideshowCounter}>
+              Step {page + 1} of {steps.length}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={onClose} hitSlop={10}>
+            <Ionicons name="close" size={26} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={(e) => {
+            const p = Math.round(e.nativeEvent.contentOffset.x / width);
+            if (p !== page) setPage(p);
+          }}
+        >
+          {steps.map((step) => {
+            const meta = step.image ? Image.resolveAssetSource(step.image) : null;
+            const ratio = meta && meta.width ? meta.height / meta.width : 1;
+            const h = Math.min(Math.round(imgW * ratio), imgMaxH);
+            return (
+              <ScrollView
+                key={step.n}
+                style={{ width }}
+                contentContainerStyle={s.slideshowSlide}
+                showsVerticalScrollIndicator={false}
+              >
+                <Text style={s.slideshowStepTitle}>{step.title}</Text>
+                {step.image && (
+                  <Image
+                    source={step.image}
+                    style={[s.slideshowImage, { width: imgW, height: h }]}
+                    resizeMode="contain"
+                  />
+                )}
+                <Text style={s.slideshowDetail}>{step.detail}</Text>
+                {step.action && (
+                  <TouchableOpacity
+                    style={[s.nativeBtn, { alignSelf: 'stretch' }]}
+                    onPress={() => Linking.openURL(step.action!.url)}
+                  >
+                    <Ionicons name="add-circle-outline" size={16} color="#fff" />
+                    <Text style={s.nativeBtnText}>  {step.action.label}</Text>
+                  </TouchableOpacity>
+                )}
+              </ScrollView>
+            );
+          })}
+        </ScrollView>
+
+        {/* Page dots */}
+        <View style={s.slideshowDots}>
+          {steps.map((_, i) => (
+            <View key={i} style={[s.slideshowDot, i === page && s.slideshowDotActive]} />
+          ))}
+        </View>
+
+        {/* Back / Next */}
+        <View style={s.slideshowActions}>
+          {page > 0 ? (
+            <TouchableOpacity style={s.slideshowBackBtn} onPress={() => go(-1)}>
+              <Text style={s.slideshowBackText}>Back</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={{ flex: 1 }} />
+          )}
+          <TouchableOpacity style={s.slideshowNextBtn} onPress={() => go(1)}>
+            <Text style={s.slideshowNextText}>{last ? 'Done' : 'Next'}</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </Modal>
   );
 }
 
@@ -966,6 +1115,8 @@ function NativeDetectSection() {
 
 export function CarDetectionSetupScreen() {
   const navigation = useNavigation();
+  // Which step slideshow is open (iOS walkthrough mode), if any.
+  const [slideshow, setSlideshow] = useState<null | 'connect' | 'disconnect'>(null);
 
   // Show ONLY the current platform's instructions. We deliberately don't expose
   // the other platform's steps: an iPhone user can't set up Android detection on
@@ -1038,7 +1189,14 @@ export function CarDetectionSetupScreen() {
               </Text>
             </Collapsible>
 
-            <StepList steps={IOS_CONNECT_STEPS} />
+            <TouchableOpacity style={s.slideshowOpenBtn} onPress={() => setSlideshow('connect')}>
+              <Ionicons name="play-circle-outline" size={18} color={theme.colors.primaryDeep} />
+              <Text style={s.slideshowOpenText}>  Show me how, step by step</Text>
+            </TouchableOpacity>
+
+            <Collapsible title="Prefer written steps?">
+              <StepList steps={IOS_CONNECT_STEPS} />
+            </Collapsible>
 
             <View style={s.urlCard}>
               <Text style={s.urlLabel}>Connect URL</Text>
@@ -1077,7 +1235,17 @@ export function CarDetectionSetupScreen() {
               </Text>
             </View>
 
-            <StepList steps={IOS_DISCONNECT_STEPS} />
+            <TouchableOpacity
+              style={s.slideshowOpenBtn}
+              onPress={() => setSlideshow('disconnect')}
+            >
+              <Ionicons name="play-circle-outline" size={18} color={theme.colors.primaryDeep} />
+              <Text style={s.slideshowOpenText}>  Show me how, step by step</Text>
+            </TouchableOpacity>
+
+            <Collapsible title="Prefer written steps?">
+              <StepList steps={IOS_DISCONNECT_STEPS} />
+            </Collapsible>
 
             <View style={s.urlCard}>
               <Text style={s.urlLabel}>Disconnect URL</Text>
@@ -1286,6 +1454,25 @@ export function CarDetectionSetupScreen() {
         </View>
 
       </ScrollView>
+
+      {/* iOS walkthrough slideshows - mounted once, opened via the
+          "Show me how" buttons in each section. */}
+      {isIOS && (
+        <>
+          <StepSlideshow
+            title="Connect automation"
+            steps={IOS_CONNECT_STEPS}
+            visible={slideshow === 'connect'}
+            onClose={() => setSlideshow(null)}
+          />
+          <StepSlideshow
+            title="Disconnect automation"
+            steps={IOS_DISCONNECT_STEPS}
+            visible={slideshow === 'disconnect'}
+            onClose={() => setSlideshow(null)}
+          />
+        </>
+      )}
     </SafeAreaView>
   );
 }
@@ -1562,6 +1749,102 @@ const s = StyleSheet.create({
     color: theme.colors.primaryDark,
   },
   urlHint: { fontSize: 12, color: theme.colors.textTertiary },
+
+  // Inline "add the shortcut" button under a step's detail text.
+  stepActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginTop: 8,
+    alignSelf: 'flex-start',
+  },
+  stepActionBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+
+  // "Show me how, step by step" - opens the slideshow walkthrough.
+  slideshowOpenBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.primaryLight,
+    borderWidth: 0.5,
+    borderColor: '#5DCAA5',
+    borderRadius: theme.radius.md,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  slideshowOpenText: { color: theme.colors.primaryDeep, fontSize: 14, fontWeight: '600' },
+
+  // Full-screen slideshow walkthrough
+  slideshowSafe: { flex: 1, backgroundColor: theme.colors.bgPrimary },
+  slideshowTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 4,
+    gap: 12,
+  },
+  slideshowTitle: { fontSize: 17, fontWeight: '600', color: theme.colors.textPrimary },
+  slideshowCounter: { fontSize: 13, color: theme.colors.textSecondary, marginTop: 2 },
+  slideshowSlide: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    gap: 14,
+  },
+  slideshowStepTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: theme.colors.textPrimary,
+    textAlign: 'center',
+  },
+  slideshowDetail: {
+    fontSize: 15,
+    color: theme.colors.textSecondary,
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  slideshowImage: {
+    borderRadius: theme.radius.lg,
+    borderWidth: 0.5,
+    borderColor: theme.colors.borderTertiary,
+    backgroundColor: theme.colors.bgSecondary,
+  },
+  slideshowDots: { flexDirection: 'row', justifyContent: 'center', gap: 8, paddingVertical: 14 },
+  slideshowDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: theme.colors.borderSecondary },
+  slideshowDotActive: { backgroundColor: theme.colors.primary, width: 20 },
+  slideshowActions: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 24,
+    paddingBottom: 16,
+  },
+  slideshowBackBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 15,
+    borderRadius: theme.radius.md,
+    borderWidth: 0.5,
+    borderColor: theme.colors.borderSecondary,
+    backgroundColor: theme.colors.bgPrimary,
+  },
+  slideshowBackText: { fontSize: 15, fontWeight: '500', color: theme.colors.textSecondary },
+  slideshowNextBtn: {
+    flex: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 15,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.primary,
+  },
+  slideshowNextText: { fontSize: 16, fontWeight: '600', color: '#fff' },
 
   // Side-by-side test buttons at the bottom of the screen
   testBtnRow: { flexDirection: 'row', gap: 8 },
