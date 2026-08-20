@@ -12,3 +12,15 @@ web-build/
 
 # Personal scratch notes (local only)
 things_to_remember.txt
+
+# Local secrets and signing material
+.env*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+secrets*.json
+
+# Crash and runtime logs
